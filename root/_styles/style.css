@@ -1,0 +1,48 @@
+* {
+    font-family: Helvetica, Sans-Serif;
+    font-size: 1.1rem;
+}
+
+html, body, #content {
+    margin: 0;
+    border: 0;
+}
+
+html, body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#content {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: block;
+    image-rendering: crisp-edges;
+    image-rendering: pixelated;
+}
+
+#command-bar {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    z-index: 999;
+}
+
+#weapon-message-container {
+    user-select: none;
+    position: absolute;
+    left: 50%;
+    bottom: 20%;
+    transform: translate(-50%, 50%);
+    z-index: 999;
+}
+
+#weapon-message {
+    color: rgb(192, 192, 192);        
+}
