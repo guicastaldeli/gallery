@@ -427,9 +427,6 @@ async function setBuffers(passEncoder, viewProjectionMatrix, modelMatrix, curren
         const cameraPos = camera.controller.getCameraPosition();
         uniformData.set(cameraPos, 48);
         uniformData.set([currentTime / 1000], 51);
-        const isLamp = data.isLamp ? data.isLamp[0] > 0 : false;
-        uniformData.set(isLamp ? [1.0, 1.0, 1.0] : [0.0, 0.0, 0.0], 44);
-        isLamp ? uniformData.set([1.0, 1.0, 1.0], 44) : uniformData.set([0.0, 0.0, 0.0], 44);
         const isEmissive = data.isEmissive ? data.isEmissive[0] > 0 : false;
         uniformData.set(isEmissive ? [1.0, 1.0, 1.0] : [0.0, 0.0, 0.0], 53);
         isEmissive ? uniformData.set([1.0, 1.0, 1.0], 53) : uniformData.set([0.0, 0.0, 0.0], 53);

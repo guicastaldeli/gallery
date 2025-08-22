@@ -1,56 +1,77 @@
 import { mat3, mat4, vec3 } from "../../node_modules/gl-matrix/esm/index.js";
-import { EnvBufferData, initEnvBuffers } from "./env-buffers.js";
+import { EnvBufferData } from "./env-buffers.js";
 import { Loader } from "../loader.js";
 import { BoxCollider, Collider, CollisionInfo, CollisionResponse, ICollidable } from "../collision/collider.js";
-import { EnvRenderer } from "./env-renderer.js";
 
 export class Ground implements ICollidable {
-    private renderer?: EnvRenderer;
-    private device: GPUDevice;
     private loader: Loader;
-
     private blocks: EnvBufferData[];
     private count: number = 20;
     private _Collider: BoxCollider[] = [];
 
-    pos = {
-        x: 0,
-        y: 0,
-        z: 0,
+    private pos = {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
         gap: () => 1.0
     }
 
-    size = {
+    private size = {
         w: 0.05,
         h: 0.05,
         d: 0.05
     }
 
-    constructor(device: GPUDevice, loader: Loader, renderer?: EnvRenderer) {
-        this.device = device;
+    constructor(loader: Loader) {
         this.loader = loader;
-        this.renderer = renderer;
         this.blocks = [];
     }
 
-    private async createGround(): Promise<void> {
-        const model = await this.loader.parser('./.assets/env/obj/terrain.obj');
-        const texture = await this.loader.textureLoader('./.assets/env/textures/terrain.png');
-        const sampler = this.loader.createSampler();
+    private async loadAssets(): Promise<EnvBufferData> {
+        try {
+            const model = await this.loader.parser('./.assets/env/obj/terrain.obj');
+            const texture = await this.loader.textureLoader('./.assets/env/textures/terrain.png');
+            const sampler = this.loader.createSampler();
 
+            const data: EnvBufferData = {
+                vertex: model.vertex,
+                color: model.color,
+                index: model.index,
+                indexCount: model.indexCount,
+                modelMatrix: mat4.create(),
+                normalMatrix: mat3.create(),
+                texture: texture,
+                sampler: sampler,
+                isEmissive: [0.0, 0.0, 0.0]
+            }
+
+            return data;
+        } catch(err) {
+            console.log(err);
+            throw err;
+        }
+    }
+
+    private bufferData(data: EnvBufferData): EnvBufferData {
+        return {
+            vertex: data.vertex,
+            color: data.color,
+            index: data.index,
+            indexCount: data.indexCount,
+            modelMatrix: mat4.clone(data.modelMatrix),
+            normalMatrix: mat3.clone(data.normalMatrix),
+            texture: data.texture,
+            sampler: data.sampler,
+            isEmissive: [...data.isEmissive]
+        };
+    }
+
+    private async create(): Promise<void> {
+        const baseData = await this.loadAssets();
+        
         for(let x = 0; x < this.count; x++) {
             for(let z = 0; z < this.count; z++) {
-                const block: EnvBufferData = {
-                    vertex: model.vertex,
-                    color: model.color,
-                    index: model.index,
-                    indexCount: model.indexCount,
-                    modelMatrix: mat4.create(),
-                    normalMatrix: mat3.create(),
-                    texture: texture,
-                    sampler: sampler,
-                    isLamp: [0.0, 0.0, 0.0]
-                }
+                const data = this.bufferData(baseData);
 
                 const position = vec3.fromValues(
                     (this.pos.x + x) * this.pos.gap(),
@@ -58,31 +79,31 @@ export class Ground implements ICollidable {
                     (this.pos.z + z) * this.pos.gap()
                 );
 
-                mat4.identity(block.modelMatrix);
+                mat4.identity(data.modelMatrix);
                 mat4.translate(
-                    block.modelMatrix, 
-                    block.modelMatrix,
+                    data.modelMatrix, 
+                    data.modelMatrix,
                     position
                 );
                 mat4.scale(
-                    block.modelMatrix,
-                    block.modelMatrix,
+                    data.modelMatrix,
+                    data.modelMatrix,
                     [this.size.w, this.size.h, this.size.d]
                 );
-                mat4.copy(block.modelMatrix, block.modelMatrix);
+                mat4.copy(data.modelMatrix, data.modelMatrix);
 
                 const collider = new BoxCollider(
                     [this.pos.gap(), this.pos.gap(), this.pos.gap()],
                     vec3.fromValues(position[0], position[1], position[2])
                 );
 
-                this.blocks.push(block);
+                this.blocks.push(data);
                 this._Collider.push(collider);
             }
         }
     }
 
-    public getBlocks(): EnvBufferData[] {
+    public getData(): EnvBufferData[] {
         return this.blocks;
     }
 
@@ -125,6 +146,6 @@ export class Ground implements ICollidable {
     }
 
     public async init(): Promise<void> {
-        await this.createGround();
+        await this.create();
     }
 }

@@ -2,21 +2,19 @@ import { mat3, mat4, vec3 } from "../../node_modules/gl-matrix/esm/index.js";
 import { BoxCollider } from "../collision/collider.js";
 import { StructureManager } from "./structure-manager.js";
 export class Chambers {
-    device;
     loader;
     structureManager;
     blocks = [];
     blockIdCounter = 0;
     _Collider = [];
-    source = new Map();
+    src = new Map();
     id = 'default-chamber';
     collisionScale = {
         w: 40.0,
         h: 40.0,
         d: 40.0
     };
-    constructor(device, loader) {
-        this.device = device;
+    constructor(loader) {
         this.loader = loader;
         this.structureManager = new StructureManager();
     }
@@ -24,13 +22,14 @@ export class Chambers {
         try {
             const model = await this.loader.parser('./.assets/env/obj/walls.obj');
             const texture = await this.loader.textureLoader('./.assets/env/textures/walls.png');
-            this.source.set(this.id, {
+            const sampler = this.loader.createSampler();
+            this.src.set(this.id, {
                 vertex: model.vertex,
                 color: model.color,
                 index: model.index,
                 indexCount: model.indexCount,
                 texture: texture,
-                sampler: this.loader.createSampler(),
+                sampler: sampler,
                 referenceCount: 0
             });
         }
@@ -39,13 +38,13 @@ export class Chambers {
         }
     }
     getResource(id) {
-        const resource = this.source.get(id);
+        const resource = this.src.get(id);
         if (!resource)
             throw new Error(`${id} not found`);
         resource.referenceCount++;
         return resource;
     }
-    async createBlock(position, isBlock, rotation) {
+    async create(position, isBlock, rotation) {
         if (!isBlock)
             return { block: null, collider: null };
         const size = this.structureManager.getSize();
@@ -91,21 +90,21 @@ export class Chambers {
         this.blocks.push(block);
         return { block, collider };
     }
-    async createChamber() {
+    async generate() {
         this.blocks = [];
         this._Collider = [];
         const patternDataArray = await this.loadPatternData();
         const patternData = patternDataArray[0];
         const patterns = {
-            rightWall: {
+            fChamber: {
                 pos: {
                     x: -2.0,
                     y: 0.0,
                     z: 19.0
                 },
-                pattern: patternData.patterns.wall.rightWall
+                pattern: patternData.patterns.chamber
             },
-            leftWall: {
+            sChamber: {
                 pos: {
                     x: -20.0,
                     y: 0.0,
@@ -115,12 +114,12 @@ export class Chambers {
                     axis: 'y',
                     angle: Math.PI / 2
                 },
-                pattern: patternData.patterns.wall.leftWall
+                pattern: patternData.patterns.chamber
             }
         };
         for (const [_, data] of Object.entries(patterns)) {
             const position = vec3.fromValues(data.pos.x, data.pos.y, data.pos.z);
-            const { blocks, colliders } = await this.structureManager.createFromPattern(data.pattern, position, this.createBlock.bind(this), data.rotation);
+            const { blocks, colliders } = await this.structureManager.createFromPattern(data.pattern, position, this.create.bind(this), data.rotation);
             this.blocks.push(...blocks.filter(b => b !== null));
             this._Collider.push(...colliders.filter(c => c !== null));
         }
@@ -146,7 +145,7 @@ export class Chambers {
             type: this.getCollisionInfo().type
         }));
     }
-    getBlocks() {
+    getData() {
         return this.blocks;
     }
     async loadPatternData() {
@@ -163,6 +162,6 @@ export class Chambers {
     }
     async init() {
         await this.loadAssets();
-        await this.createChamber();
+        await this.generate();
     }
 }

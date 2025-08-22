@@ -18,7 +18,7 @@ export class GetColliders {
         }
         if (this.envRenderer?.chambers) {
             colliders.push({
-                type: 'wall',
+                type: 'chamber',
                 colliders: this.envRenderer.chambers.getAllColliders().map(data => ({
                     collider: data.collider,
                     position: data.position

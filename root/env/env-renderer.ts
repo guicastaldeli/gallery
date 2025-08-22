@@ -32,67 +32,14 @@ export class EnvRenderer {
         this.objectManager = objectManager;
     }
 
-    public async renderEnv(
-        passEncoder: GPURenderPassEncoder,
-        uniformBuffer: GPUBuffer,
-        viewProjectionMatrix: mat4,
-        bindGroup: GPUBindGroup
-    ): Promise<void> {
-        console.log('tst')
-        //Ground
-        const blocks = this.ground.getBlocks();
-        for(let i = 0; i < blocks.length; i++) {
-            const data = blocks[i];
-            const num = 256;
-            const offset = num * (i + 1);
-            await this.drawObject(passEncoder, data, uniformBuffer, viewProjectionMatrix, bindGroup, offset);
-        }
-
-        //Chambers
-        const chambers = this.chambers.getBlocks();
-        for(let i = 0; i < chambers.length; i++) {
-            const data = chambers[i];
-            const num = 256;
-            const offset = num * (i + 1);
-            await this.drawObject(passEncoder, data, uniformBuffer, viewProjectionMatrix, bindGroup, offset);
-        }
-    }
-
-    private async drawObject(
-        passEncoder: GPURenderPassEncoder,
-        buffers: EnvBufferData,
-        uniformBuffer: GPUBuffer,
-        viewProjectionMatrix: mat4,
-        bindGroup: GPUBindGroup,
-        offset: number
-    ): Promise<void> {
-        const mvpMatrix = mat4.create();
-        mat4.multiply(mvpMatrix, viewProjectionMatrix, buffers.modelMatrix);
-
-        const normalMatrix = mat3.create();
-        mat3.normalFromMat4(normalMatrix, buffers.modelMatrix);
-
-        const uniformData = new Float32Array(16 + 16 + 12 + 4);
-        uniformData.set(mvpMatrix, 0);
-        uniformData.set(buffers.modelMatrix, 16);
-        uniformData.set(normalMatrix, 32);
-        this.device.queue.writeBuffer(uniformBuffer, offset, uniformData);
-
-        passEncoder.setVertexBuffer(0, buffers.vertex);
-        passEncoder.setVertexBuffer(1, buffers.color);
-        passEncoder.setIndexBuffer(buffers.index, 'uint16');
-        passEncoder.setBindGroup(0, bindGroup, [offset]);
-        passEncoder.drawIndexed(buffers.indexCount);
-    }
-
     public async update(deltaTime: number): Promise<void> {
         if(!this.objectManager) return;
     }
 
     public async get(): Promise<EnvBufferData[]> {
         const renderers = [
-            ...this.ground.getBlocks(),
-            ...this.chambers.getBlocks(),
+            ...this.ground.getData(),
+            ...this.chambers.getData(),
         ];
 
         return renderers;
@@ -100,11 +47,11 @@ export class EnvRenderer {
 
     public async render(): Promise<void> {
         //Ground
-        this.ground = new Ground(this.device, this.loader);
+        this.ground = new Ground(this.loader);
         await this.ground.init();
         
-        //Walls
-        this.chambers = new Chambers(this.device, this.loader);
+        //Chambers
+        this.chambers = new Chambers(this.loader);
         await this.chambers.init();
     }
 }

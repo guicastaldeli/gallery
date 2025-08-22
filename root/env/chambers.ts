@@ -42,15 +42,13 @@ interface Resource {
 }
 
 export class Chambers implements ICollidable {
-    private device: GPUDevice;
     private loader: Loader;
-    
     private structureManager: StructureManager;
     private blocks: Data[] = [];
     private blockIdCounter: number = 0;
     private _Collider: BoxCollider[] = [];
 
-    private source: Map<string, Resource> = new Map();
+    private src: Map<string, Resource> = new Map();
     private id: string = 'default-chamber';
 
     private collisionScale = {
@@ -59,8 +57,7 @@ export class Chambers implements ICollidable {
         d: 40.0
     }
 
-    constructor(device: GPUDevice, loader: Loader) {
-        this.device = device;
+    constructor(loader: Loader) {
         this.loader = loader;
         this.structureManager = new StructureManager();
     }
@@ -69,14 +66,15 @@ export class Chambers implements ICollidable {
         try {
             const model = await this.loader.parser('./.assets/env/obj/walls.obj');
             const texture = await this.loader.textureLoader('./.assets/env/textures/walls.png');
-    
-            this.source.set(this.id, {
+            const sampler = this.loader.createSampler();
+
+            this.src.set(this.id, {
                 vertex: model.vertex,
                 color: model.color,
                 index: model.index,
                 indexCount: model.indexCount,
                 texture: texture,
-                sampler: this.loader.createSampler(),
+                sampler: sampler,
                 referenceCount: 0
             });
         } catch(err) {
@@ -85,13 +83,13 @@ export class Chambers implements ICollidable {
     }
 
     private getResource(id: string): Resource {
-        const resource = this.source.get(id);
+        const resource = this.src.get(id);
         if(!resource) throw new Error(`${id} not found`);
         resource.referenceCount++;
         return resource;
     }
 
-    private async createBlock(
+    private async create(
         position: vec3,
         isBlock: boolean,
         rotation?: {
@@ -156,22 +154,22 @@ export class Chambers implements ICollidable {
         return { block, collider };
     }
 
-    public async createChamber(): Promise<void> {
+    public async generate(): Promise<void> {
         this.blocks = [];
         this._Collider = [];
         const patternDataArray = await this.loadPatternData();
         const patternData = patternDataArray[0];
 
         const patterns: Record<string, Pattern> = {
-            rightWall: {
+            fChamber: {
                 pos: {
                     x: -2.0,
                     y: 0.0,
                     z: 19.0
                 },
-                pattern: patternData.patterns.wall.rightWall
+                pattern: patternData.patterns.chamber
             },
-            leftWall: {
+            sChamber: {
                 pos: {
                     x: -20.0,
                     y: 0.0,
@@ -181,7 +179,7 @@ export class Chambers implements ICollidable {
                     axis: 'y',
                     angle: Math.PI / 2
                 },
-                pattern: patternData.patterns.wall.leftWall
+                pattern: patternData.patterns.chamber
             }
         }
 
@@ -190,7 +188,7 @@ export class Chambers implements ICollidable {
             const { blocks, colliders } = await this.structureManager.createFromPattern(
                 data.pattern,
                 position,
-                this.createBlock.bind(this),
+                this.create.bind(this),
                 data.rotation
             )
 
@@ -228,7 +226,7 @@ export class Chambers implements ICollidable {
         }));
     }
 
-    public getBlocks(): Data[] {
+    public getData(): Data[] {
         return this.blocks;
     }
 
@@ -245,6 +243,6 @@ export class Chambers implements ICollidable {
 
     public async init(): Promise<void> {
         await this.loadAssets();
-        await this.createChamber();
+        await this.generate();
     }
 }

@@ -1,4 +1,4 @@
-import { mat4, vec3 } from "../../node_modules/gl-matrix/esm/index.js";
+import { vec3 } from "../../node_modules/gl-matrix/esm/index.js";
 import { Collider, ICollidable } from "./collider.js";
 import { EnvRenderer } from "../env/env-renderer.js";
 import { CollisionResponse } from "./collider.js";
@@ -36,7 +36,7 @@ export class GetColliders {
 
         if(this.envRenderer?.chambers) {
             colliders.push({
-                type: 'wall',
+                type: 'chamber',
                 colliders: this.envRenderer.chambers.getAllColliders().map(data => ({
                     collider: data.collider,
                     position: data.position
