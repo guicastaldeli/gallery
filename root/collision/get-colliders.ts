@@ -24,10 +24,10 @@ export class GetColliders {
     private getColliders(): ColliderCollection[] {
         const colliders: ColliderCollection[] = [];
         
-        if(this.envRenderer?.ground) {
+        if(this.envRenderer?.floor) {
             colliders.push({
-                type: 'ground',
-                colliders: this.envRenderer.ground.getAllColliders().map(data => ({
+                type: 'floor',
+                colliders: this.envRenderer.floor.getAllColliders().map(data => ({
                     collider: data.collider,
                     position: data.position
                 }))

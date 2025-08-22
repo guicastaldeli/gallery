@@ -4,7 +4,7 @@ import 'reflect-metadata';
 import { Tick } from "../../tick.js";
 import { Loader } from "../../loader.js";
 import { ShaderLoader } from "../../shader-loader.js";
-import { Ground } from "../ground.js";
+import { Floor } from "../floor.js";
 import { LightningManager } from "../../lightning-manager.js";
 import { Controller } from "../../controller/controller.js";
 import { EnvBufferData } from "../env-buffers.js";
@@ -25,7 +25,7 @@ interface Dependencies {
     passEncoder: GPURenderPassEncoder | null;
     loader: Loader;
     shaderLoader: ShaderLoader;
-    ground: Ground;
+    floor: Floor;
     lightningManager: LightningManager;
     canvas: HTMLCanvasElement;
     controller: Controller | null;
@@ -39,7 +39,7 @@ const dependenciesMap = new Map<Function, keyof Dependencies>([
     [GPURenderPassEncoder, 'passEncoder'],
     [Loader, 'loader'],
     [ShaderLoader, 'shaderLoader'],
-    [Ground, 'ground'],
+    [Floor, 'floor'],
     [LightningManager, 'lightningManager'],
     [HTMLCanvasElement, 'canvas'],
     [Controller, 'controller'],

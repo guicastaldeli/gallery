@@ -5,7 +5,7 @@ import { Controller } from "../controller/controller.js";
 import { Loader } from "../loader.js";
 import { ShaderLoader } from "../shader-loader.js";
 import { Chambers } from "./chambers.js";
-import { Ground } from "./ground.js";
+import { Floor } from "./floor.js";
 import { ObjectManager } from "./obj/object-manager.js";
 
 export class EnvRenderer {
@@ -15,7 +15,7 @@ export class EnvRenderer {
 
     //Items
     public chambers!: Chambers;
-    public ground!: Ground;
+    public floor!: Floor;
 
     //Objects
     public objectManager?: ObjectManager;
@@ -38,7 +38,7 @@ export class EnvRenderer {
 
     public async get(): Promise<EnvBufferData[]> {
         const renderers = [
-            ...this.ground.getData(),
+            ...this.floor.getData(),
             ...this.chambers.getData(),
         ];
 
@@ -47,8 +47,8 @@ export class EnvRenderer {
 
     public async render(): Promise<void> {
         //Ground
-        this.ground = new Ground(this.loader);
-        await this.ground.init();
+        this.floor = new Floor(this.loader);
+        await this.floor.init();
         
         //Chambers
         this.chambers = new Chambers(this.loader);

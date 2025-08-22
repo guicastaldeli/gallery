@@ -1,12 +1,12 @@
 import { Chambers } from "./chambers.js";
-import { Ground } from "./ground.js";
+import { Floor } from "./floor.js";
 export class EnvRenderer {
     device;
     loader;
     shaderLoader;
     //Items
     chambers;
-    ground;
+    floor;
     //Objects
     objectManager;
     constructor(device, loader, shaderLoader, objectManager) {
@@ -21,15 +21,15 @@ export class EnvRenderer {
     }
     async get() {
         const renderers = [
-            ...this.ground.getData(),
+            ...this.floor.getData(),
             ...this.chambers.getData(),
         ];
         return renderers;
     }
     async render() {
         //Ground
-        this.ground = new Ground(this.loader);
-        await this.ground.init();
+        this.floor = new Floor(this.loader);
+        await this.floor.init();
         //Chambers
         this.chambers = new Chambers(this.loader);
         await this.chambers.init();

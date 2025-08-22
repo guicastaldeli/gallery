@@ -510,7 +510,7 @@ async function renderEnv(deltaTime) {
         envRenderer = new EnvRenderer(device, loader, shaderLoader, objectManager);
         await envRenderer.render();
         await envRenderer.update(deltaTime);
-        objectManager.deps.ground = envRenderer.ground;
+        objectManager.deps.floor = envRenderer.floor;
     }
 }
 async function lateRenderers(passEncoder, viewProjectionMatrix, deltaTime) {
@@ -558,7 +558,7 @@ export async function render(canvas) {
                 passEncoder: null,
                 loader,
                 shaderLoader,
-                ground: envRenderer?.ground,
+                floor: envRenderer?.floor,
                 lightningManager,
                 canvas,
                 controller,

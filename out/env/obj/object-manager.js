@@ -12,7 +12,7 @@ import 'reflect-metadata';
 import { Tick } from "../../tick.js";
 import { Loader } from "../../loader.js";
 import { ShaderLoader } from "../../shader-loader.js";
-import { Ground } from "../ground.js";
+import { Floor } from "../floor.js";
 import { LightningManager } from "../../lightning-manager.js";
 import { Controller } from "../../controller/controller.js";
 export function Injectable() {
@@ -26,7 +26,7 @@ const dependenciesMap = new Map([
     [GPURenderPassEncoder, 'passEncoder'],
     [Loader, 'loader'],
     [ShaderLoader, 'shaderLoader'],
-    [Ground, 'ground'],
+    [Floor, 'floor'],
     [LightningManager, 'lightningManager'],
     [HTMLCanvasElement, 'canvas'],
     [Controller, 'controller'],

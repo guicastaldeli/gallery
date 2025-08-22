@@ -595,7 +595,7 @@ async function renderEnv(deltaTime: number): Promise<void> {
         envRenderer = new EnvRenderer(device, loader, shaderLoader, objectManager);
         await envRenderer.render();
         await envRenderer.update(deltaTime);
-        objectManager.deps.ground = envRenderer.ground;
+        objectManager.deps.floor = envRenderer.floor;
     }
 }
 
@@ -643,7 +643,7 @@ export async function render(canvas: HTMLCanvasElement): Promise<void> {
                 passEncoder: null,
                 loader,
                 shaderLoader,
-                ground: envRenderer?.ground,
+                floor: envRenderer?.floor,
                 lightningManager,
                 canvas,
                 controller,

@@ -3,7 +3,7 @@ import { EnvBufferData } from "./env-buffers.js";
 import { Loader } from "../loader.js";
 import { BoxCollider, Collider, CollisionInfo, CollisionResponse, ICollidable } from "../collision/collider.js";
 
-export class Ground implements ICollidable {
+export class Floor implements ICollidable {
     private loader: Loader;
     private blocks: EnvBufferData[];
     private count: number = 20;
@@ -124,7 +124,7 @@ export class Ground implements ICollidable {
 
     public getCollisionInfo(): CollisionInfo {
         return {
-            type: 'ground',
+            type: 'floor',
             position: this.getPosition()
         }
     }
@@ -141,7 +141,7 @@ export class Ground implements ICollidable {
         }));
     }
 
-    public getGroundLevelY(x: number, z: number): number {
+    public getLevelY(x: number, z: number): number {
         return this.pos.y + 0.3;
     }
 
