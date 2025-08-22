@@ -10,11 +10,6 @@ export class Chambers {
     _Collider = [];
     source = new Map();
     id = 'default-chamber';
-    pos = {
-        x: 0.0,
-        y: 0.0,
-        z: 5.0
-    };
     collisionScale = {
         w: 40.0,
         h: 40.0,
@@ -85,12 +80,14 @@ export class Chambers {
         }
         mat4.translate(block.modelMatrix, block.modelMatrix, position);
         mat4.scale(block.modelMatrix, block.modelMatrix, [size.w, size.h, size.d]);
+        const worldCenter = vec3.create();
+        vec3.transformMat4(worldCenter, vec3.create(), block.modelMatrix);
         const collider = isBlock ?
             new BoxCollider([
                 size.w * this.collisionScale.w,
                 size.h * this.collisionScale.h,
                 size.d * this.collisionScale.d
-            ], position) : null;
+            ], worldCenter) : null;
         this.blocks.push(block);
         return { block, collider };
     }
@@ -110,26 +107,18 @@ export class Chambers {
             },
             leftWall: {
                 pos: {
-                    x: -2.0,
+                    x: -20.0,
                     y: 0.0,
-                    z: 0.0
-                },
-                pattern: patternData.patterns.wall.leftWall
-            },
-            ceiling: {
-                pos: {
-                    x: 0.0,
-                    y: 0.0,
-                    z: -6.0
+                    z: 15.0
                 },
                 rotation: {
-                    axis: 'x',
+                    axis: 'y',
                     angle: Math.PI / 2
                 },
-                pattern: patternData.patterns.ceiling
+                pattern: patternData.patterns.wall.leftWall
             }
         };
-        for (const [name, data] of Object.entries(patterns)) {
+        for (const [_, data] of Object.entries(patterns)) {
             const position = vec3.fromValues(data.pos.x, data.pos.y, data.pos.z);
             const { blocks, colliders } = await this.structureManager.createFromPattern(data.pattern, position, this.createBlock.bind(this), data.rotation);
             this.blocks.push(...blocks.filter(b => b !== null));

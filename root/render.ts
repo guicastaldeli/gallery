@@ -581,7 +581,7 @@ export function parseColor(rgb: string): [number, number, number] {
         const direction = vec3.fromValues(pos.x, pos.y, pos.z);
         vec3.normalize(direction, direction);
 
-        const light = new DirectionalLight(colorArray, direction, 0.0);
+        const light = new DirectionalLight(colorArray, direction, 1.0);
         lightningManager.addDirectionalLight('directional', light);
         lightningManager.updateLightBuffer('directional');
     }
