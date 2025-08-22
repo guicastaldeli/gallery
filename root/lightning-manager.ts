@@ -75,16 +75,17 @@ export class LightningManager {
                 data = new Float32Array(4);
                 data.set(ambientLight.getColorWithIntensity(), 0);
                 data[3] = ambientLight.intensity;
-                this.device.queue.writeBuffer(buffer, 0, data);
+                this.device.queue.writeBuffer(buffer, 0, data.buffer);
                 break;
             case 'directional':
                 const directionalLight = light as DirectionalLight;
-                this.device.queue.writeBuffer(buffer, 0, directionalLight.getShaderData());
+                const shaderData = directionalLight.getShaderData();
+                this.device.queue.writeBuffer(buffer, 0, shaderData.buffer);
                 break;
             case 'point':
                 const pointLight = light as PointLight;
                 data = pointLight.getBufferData();
-                this.device.queue.writeBuffer(buffer, 0, data);
+                this.device.queue.writeBuffer(buffer, 0, data.buffer);
                 break;
             default:
                 return; 

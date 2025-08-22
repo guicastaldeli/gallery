@@ -16,10 +16,10 @@ export class GetColliders {
                 }))
             });
         }
-        if (this.envRenderer?.walls) {
+        if (this.envRenderer?.chambers) {
             colliders.push({
                 type: 'wall',
-                colliders: this.envRenderer.walls.getAllColliders().map(data => ({
+                colliders: this.envRenderer.chambers.getAllColliders().map(data => ({
                     collider: data.collider,
                     position: data.position
                 }))

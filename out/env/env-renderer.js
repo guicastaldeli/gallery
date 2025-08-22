@@ -1,12 +1,12 @@
 import { mat3, mat4 } from "../../node_modules/gl-matrix/esm/index.js";
-import { Walls } from "./walls.js";
+import { Chambers } from "./chambers.js";
 import { Ground } from "./ground.js";
 export class EnvRenderer {
     device;
     loader;
     shaderLoader;
     //Items
-    walls;
+    chambers;
     ground;
     //Objects
     objectManager;
@@ -26,10 +26,10 @@ export class EnvRenderer {
             const offset = num * (i + 1);
             await this.drawObject(passEncoder, data, uniformBuffer, viewProjectionMatrix, bindGroup, offset);
         }
-        //Walls
-        const walls = this.walls.getBlocks();
-        for (let i = 0; i < walls.length; i++) {
-            const data = walls[i];
+        //Chambers
+        const chambers = this.chambers.getBlocks();
+        for (let i = 0; i < chambers.length; i++) {
+            const data = chambers[i];
             const num = 256;
             const offset = num * (i + 1);
             await this.drawObject(passEncoder, data, uniformBuffer, viewProjectionMatrix, bindGroup, offset);
@@ -58,7 +58,7 @@ export class EnvRenderer {
     async get() {
         const renderers = [
             ...this.ground.getBlocks(),
-            ...this.walls.getBlocks(),
+            ...this.chambers.getBlocks(),
         ];
         return renderers;
     }
@@ -67,7 +67,7 @@ export class EnvRenderer {
         this.ground = new Ground(this.device, this.loader);
         await this.ground.init();
         //Walls
-        this.walls = new Walls(this.device, this.loader);
-        await this.walls.init();
+        this.chambers = new Chambers(this.device, this.loader);
+        await this.chambers.init();
     }
 }
