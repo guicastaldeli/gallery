@@ -1,7 +1,7 @@
-import { mat3, mat4, vec3 } from "../../node_modules/gl-matrix/esm/index.js";
-import { EnvBufferData } from "./env-buffers.js";
-import { Loader } from "../loader.js";
-import { BoxCollider, Collider, CollisionInfo, CollisionResponse, ICollidable } from "../collision/collider.js";
+import { mat3, mat4, vec3 } from "../../../node_modules/gl-matrix/esm/index.js";
+import { EnvBufferData } from "../env-buffers.js";
+import { Loader } from "../../loader.js";
+import { BoxCollider, Collider, CollisionInfo, CollisionResponse, ICollidable } from "../../collision/collider.js";
 
 export class Floor implements ICollidable {
     private loader: Loader;

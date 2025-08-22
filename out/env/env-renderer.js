@@ -1,5 +1,5 @@
-import { Chambers } from "./chambers.js";
-import { Floor } from "./floor.js";
+import { Chambers } from "./structures/chambers.js";
+import { Floor } from "./structures/floor.js";
 export class EnvRenderer {
     device;
     loader;

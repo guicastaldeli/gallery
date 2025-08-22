@@ -4,8 +4,8 @@ import { EnvBufferData } from "./env-buffers.js";
 import { Controller } from "../controller/controller.js";
 import { Loader } from "../loader.js";
 import { ShaderLoader } from "../shader-loader.js";
-import { Chambers } from "./chambers.js";
-import { Floor } from "./floor.js";
+import { Chambers } from "./structures/chambers.js";
+import { Floor } from "./structures/floor.js";
 import { ObjectManager } from "./obj/object-manager.js";
 
 export class EnvRenderer {

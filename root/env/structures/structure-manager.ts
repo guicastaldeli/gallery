@@ -1,6 +1,6 @@
-import { mat4, vec3 } from "../../node_modules/gl-matrix/esm/index.js";
-import { BoxCollider } from "../collision/collider.js";
-import { EnvBufferData } from "./env-buffers.js";
+import { mat4, vec3 } from "../../../node_modules/gl-matrix/esm/index.js";
+import { BoxCollider } from "../../collision/collider.js";
+import { EnvBufferData } from "../env-buffers.js";
 
 export class StructureManager {
     //Props
