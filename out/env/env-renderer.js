@@ -1,5 +1,5 @@
-import { Chambers } from "./structures/chambers.js";
-import { Floor } from "./structures/floor.js";
+import { Chambers } from "./structures/chambers/chambers.js";
+import { Floor } from "./structures/floor/floor.js";
 export class EnvRenderer {
     device;
     loader;
@@ -31,7 +31,7 @@ export class EnvRenderer {
         this.floor = new Floor(this.loader);
         await this.floor.init();
         //Chambers
-        this.chambers = new Chambers(this.loader);
+        this.chambers = new Chambers(this.loader, this.shaderLoader);
         await this.chambers.init();
     }
 }

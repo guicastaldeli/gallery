@@ -1,12 +1,9 @@
-import { mat3, mat4 } from "../../node_modules/gl-matrix/esm/index.js";
-
 import { EnvBufferData } from "./env-buffers.js";
-import { Controller } from "../controller/controller.js";
 import { Loader } from "../loader.js";
 import { ShaderLoader } from "../shader-loader.js";
-import { Chambers } from "./structures/chambers.js";
-import { Floor } from "./structures/floor.js";
 import { ObjectManager } from "./obj/object-manager.js";
+import { Chambers } from "./structures/chambers/chambers.js";
+import { Floor } from "./structures/floor/floor.js";
 
 export class EnvRenderer {
     private device: GPUDevice;
@@ -51,7 +48,7 @@ export class EnvRenderer {
         await this.floor.init();
         
         //Chambers
-        this.chambers = new Chambers(this.loader);
+        this.chambers = new Chambers(this.loader, this.shaderLoader);
         await this.chambers.init();
     }
 }

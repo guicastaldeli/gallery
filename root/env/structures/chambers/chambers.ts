@@ -1,9 +1,11 @@
-import { mat3, mat4, vec3, quat } from "../../../node_modules/gl-matrix/esm/index.js";
-import { EnvBufferData } from "../env-buffers.js";
-import { Loader } from "../../loader.js";
-import { BoxCollider, Collider, CollisionInfo, ICollidable } from "../../collision/collider.js";
-import { StructureManager } from "./structure-manager.js";
-import { Patterns } from "../patterns.interface.js";
+import { mat3, mat4, vec3, quat } from "../../../../node_modules/gl-matrix/esm/index.js";
+import { EnvBufferData } from "../../env-buffers.js";
+import { Patterns } from "../../patterns.interface.js";
+import { StructureManager } from "../structure-manager.js";
+import { Loader } from "../../../loader.js";
+import { ShaderLoader } from "../../../shader-loader.js";
+import { StencilRenderer } from "./stencil-renderer.js";
+import { BoxCollider, Collider, CollisionInfo, ICollidable } from "../../../collision/collider.js";
 
 interface Data extends EnvBufferData {
     id?: string,
@@ -28,18 +30,24 @@ interface Resource {
 }
 
 export class Chambers implements ICollidable {
+    private device: GPUDevice;
+    private canvas: HTMLCanvasElement;
+    private passEncoder: GPURenderPassEncoder;
     private loader: Loader;
+    private shaderLoader: ShaderLoader;
     private structureManager: StructureManager;
+    private stencilRenderer: StencilRenderer;
+
     private blocks: Data[] = [];
     private blockIdCounter: number = 0;
-    private _Collider: BoxCollider[] = [];
     private chamberTransform: mat4 = mat4.create();
-
+    
     private src: Map<string, Resource> = new Map();
     private id: string = 'default-chamber';
+    private _Collider: BoxCollider[] = [];
 
     //Props
-    private genPos = {
+    private chamberPos = {
         x: 5.0,
         y: 0.0,
         z: 5.0
@@ -51,9 +59,21 @@ export class Chambers implements ICollidable {
         d: 40.0
     }
 
-    constructor(loader: Loader) {
+    constructor(
+        device: GPUDevice,
+        canvas: HTMLCanvasElement,
+        passEncoder: GPURenderPassEncoder,
+        loader: Loader,
+        shaderLoader: ShaderLoader
+    ) {
+        this.device = device;
+        this.canvas = canvas;
+        this.passEncoder = passEncoder
         this.loader = loader;
+        this.shaderLoader = shaderLoader;
+        
         this.structureManager = new StructureManager();
+        this.stencilRenderer = new StencilRenderer(device, canvas, passEncoder, shaderLoader);
     }
 
     private async loadAssets(): Promise<void> {
@@ -270,9 +290,129 @@ export class Chambers implements ICollidable {
         mat4.translate(this.chamberTransform, this.chamberTransform, position);
     }
 
+    //Render
+    private async renderStencil(viewProjectionMatrix: mat4): Promise<void> {
+        try {
+            this.passEncoder.setPipeline(this.stencilRenderer.stencilMaskPipeline);
+    
+            for(let i = 0; i < 6; i++) {
+                const faceModelMatrix = this.getFaceModelMatrix(i);
+
+                const modelViewProjection = mat4.create();
+                mat4.multiply(modelViewProjection, viewProjectionMatrix, faceModelMatrix);
+
+                const buffers = this.stencilRenderer.updateBuffers(
+                    modelViewProjection,
+                    faceModelMatrix,
+                    this.stencilRenderer.stencilMaskValues[i]
+                );
+    
+                const bindGroup = this.device.createBindGroup({
+                    layout: this.stencilRenderer.stencilMaskPipeline.getBindGroupLayout(0),
+                    entries: [
+                        {
+                            binding: 0,
+                            resource: { buffer: buffers.mvp }
+                        },
+                        {
+                            binding: 1,
+                            resource: { buffer: buffers.modelMatrix }
+                        },
+                        {
+                            binding: 2,
+                            resource: { buffer: buffers.stencilValue }
+                        }
+                    ]
+                });
+    
+                this.passEncoder.setBindGroup(0, bindGroup);
+                //this.passEncoder.drawIndexed(faceIndexCount, 1, 0, 0, 0);
+            }
+    
+            this.passEncoder.setPipeline(this.stencilRenderer.stencilGeometryPipeline);
+    
+            for(const block of this.blocks) {
+                const modelViewProjection = mat4.create();
+                mat4.multiply(modelViewProjection, viewProjectionMatrix, block.modelMatrix);
+                const stencilValue = this.stencilRenderer.getStencilValueGeometry(block);
+
+                const buffers = this.stencilRenderer.updateBuffers(
+                    modelViewProjection,
+                    block.modelMatrix,
+                    stencilValue
+                );
+    
+                const bindGroup = this.device.createBindGroup({
+                    layout: this.stencilRenderer.stencilMaskPipeline.getBindGroupLayout(0),
+                    entries: [
+                        {
+                            binding: 0,
+                            resource: { buffer: buffers.mvp }
+                        },
+                        {
+                            binding: 1,
+                            resource: { buffer: buffers.modelMatrix }
+                        },
+                        {
+                            binding: 2,
+                            resource: { buffer: buffers.stencilValue }
+                        }
+                    ]
+                });
+    
+                this.passEncoder.setBindGroup(0, bindGroup);
+                this.passEncoder.setVertexBuffer(0, block.vertex);
+                this.passEncoder.setIndexBuffer(block.index, 'uint16');
+                this.passEncoder.drawIndexed(block.indexCount);
+            }
+        } catch(err) {
+            console.log(err);
+            throw err;
+        }
+    }
+
+    private getFaceModelMatrix(faceIndex: number): mat4 {
+        const faceModelMatrix = mat4.create();
+        const faceSize = 1.0;
+
+        switch(faceIndex) {
+            case 0: //Front
+                mat4.translate(faceModelMatrix, faceModelMatrix, [0, 0, 0.5 * faceSize]);
+                break;
+            case 1: //Back
+                mat4.translate(faceModelMatrix, faceModelMatrix, [0, 0, -0.5 * faceSize]);
+                mat4.rotateY(faceModelMatrix, faceModelMatrix, Math.PI);
+                break;
+            case 2: //Right
+                mat4.translate(faceModelMatrix, faceModelMatrix, [0.5 * faceSize, 0, 0]);
+                mat4.rotateY(faceModelMatrix, faceModelMatrix, Math.PI / 2);
+                break;
+            case 3: //Left
+                mat4.translate(faceModelMatrix, faceModelMatrix, [-0.5 * faceSize, 0, 0]);
+                mat4.rotateY(faceModelMatrix, faceModelMatrix, -Math.PI / 2);
+                break;
+            case 4: //Top
+                mat4.translate(faceModelMatrix, faceModelMatrix, [0, 0.5 * faceSize, 0]);
+                mat4.rotateX(faceModelMatrix, faceModelMatrix, -Math.PI / 2);
+                break;
+            case 5: //Bottom
+                mat4.translate(faceModelMatrix, faceModelMatrix, [0, -0.5 * faceSize, 0]);
+                mat4.rotateX(faceModelMatrix, faceModelMatrix, Math.PI / 2);
+                break;
+            default:
+                console.warn(`Unknown face index err: ${faceIndex}`);
+        }
+    }
+
     public async init(): Promise<void> {
         await this.loadAssets();
-        this.setUpdatedPosition(vec3.fromValues(this.genPos.x, this.genPos.y, this.genPos.z));
+        this.setUpdatedPosition(
+            vec3.fromValues(
+                this.chamberPos.x, 
+                this.chamberPos.y, 
+                this.chamberPos.z
+            )
+        );
         await this.generate();
     }
 }
