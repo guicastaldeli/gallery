@@ -1,5 +1,5 @@
 import { mat3, mat4, vec3 } from "../node_modules/gl-matrix/esm/index.js";
-import { context, device } from "./init.js";
+import { canvas, context, device } from "./init.js";
 import { initBuffers } from "./buffers.js";
 import { Tick } from "./tick.js";
 import { Camera } from "./camera.js";
@@ -505,9 +505,9 @@ async function errorHandler() {
         console.error('Pipeline error:', pipelineError);
 }
 //Env
-async function renderEnv(deltaTime) {
+async function renderEnv(deltaTime, passEncoder) {
     if (!envRenderer) {
-        envRenderer = new EnvRenderer(device, loader, shaderLoader, objectManager);
+        envRenderer = new EnvRenderer(canvas, device, passEncoder, loader, shaderLoader, objectManager);
         await envRenderer.render();
         await envRenderer.update(deltaTime);
         objectManager.deps.floor = envRenderer.floor;
@@ -631,6 +631,7 @@ export async function render(canvas) {
         passEncoder.setViewport(0, 0, canvas.width, canvas.height, 0, 1);
         passEncoder.setPipeline(pipeline);
         objectManager.deps.passEncoder = passEncoder;
+        envRenderer.passEncoder = passEncoder;
         const modelMatrix = mat4.create();
         const viewProjectionMatrix = mat4.create();
         const projectionMatrix = camera.getProjectionMatrix(canvas.width / canvas.height);

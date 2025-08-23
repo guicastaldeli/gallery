@@ -1,6 +1,6 @@
 import { mat3, mat4, vec3 } from "../node_modules/gl-matrix/esm/index.js";
 
-import { context, device } from "./init.js";
+import { canvas, context, device } from "./init.js";
 import { initBuffers } from "./buffers.js";
 import { BufferData } from "./buffers.js";
 
@@ -590,9 +590,16 @@ async function errorHandler() {
 }
 
 //Env
-async function renderEnv(deltaTime: number): Promise<void> {
+async function renderEnv(deltaTime: number, passEncoder?: GPURenderPassEncoder): Promise<void> {
     if(!envRenderer) {
-        envRenderer = new EnvRenderer(device, loader, shaderLoader, objectManager);
+        envRenderer = new EnvRenderer(
+            canvas,
+            device,
+            passEncoder!, 
+            loader, 
+            shaderLoader, 
+            objectManager
+        );
         await envRenderer.render();
         await envRenderer.update(deltaTime);
         objectManager.deps.floor = envRenderer.floor;
@@ -731,6 +738,7 @@ export async function render(canvas: HTMLCanvasElement): Promise<void> {
         passEncoder.setViewport(0, 0, canvas.width, canvas.height, 0, 1);
         passEncoder.setPipeline(pipeline);
         objectManager.deps.passEncoder = passEncoder;
+        envRenderer.passEncoder = passEncoder;
     
         const modelMatrix = mat4.create();
         const viewProjectionMatrix = mat4.create();

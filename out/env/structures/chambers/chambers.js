@@ -3,8 +3,8 @@ import { StructureManager } from "../structure-manager.js";
 import { StencilRenderer } from "./stencil-renderer.js";
 import { BoxCollider } from "../../../collision/collider.js";
 export class Chambers {
-    device;
     canvas;
+    device;
     passEncoder;
     loader;
     shaderLoader;
@@ -27,9 +27,9 @@ export class Chambers {
         h: 40.0,
         d: 40.0
     };
-    constructor(device, canvas, passEncoder, loader, shaderLoader) {
-        this.device = device;
+    constructor(canvas, device, passEncoder, loader, shaderLoader) {
         this.canvas = canvas;
+        this.device = device;
         this.passEncoder = passEncoder;
         this.loader = loader;
         this.shaderLoader = shaderLoader;

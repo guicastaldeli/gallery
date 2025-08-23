@@ -30,8 +30,8 @@ interface Resource {
 }
 
 export class Chambers implements ICollidable {
-    private device: GPUDevice;
     private canvas: HTMLCanvasElement;
+    private device: GPUDevice;
     private passEncoder: GPURenderPassEncoder;
     private loader: Loader;
     private shaderLoader: ShaderLoader;
@@ -60,14 +60,14 @@ export class Chambers implements ICollidable {
     }
 
     constructor(
-        device: GPUDevice,
         canvas: HTMLCanvasElement,
+        device: GPUDevice,
         passEncoder: GPURenderPassEncoder,
         loader: Loader,
         shaderLoader: ShaderLoader
     ) {
-        this.device = device;
         this.canvas = canvas;
+        this.device = device;
         this.passEncoder = passEncoder
         this.loader = loader;
         this.shaderLoader = shaderLoader;

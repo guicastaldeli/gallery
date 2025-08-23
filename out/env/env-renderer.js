@@ -2,6 +2,8 @@ import { Chambers } from "./structures/chambers/chambers.js";
 import { Floor } from "./structures/floor/floor.js";
 export class EnvRenderer {
     device;
+    canvas;
+    passEncoder;
     loader;
     shaderLoader;
     //Items
@@ -9,8 +11,10 @@ export class EnvRenderer {
     floor;
     //Objects
     objectManager;
-    constructor(device, loader, shaderLoader, objectManager) {
+    constructor(canvas, device, passEncoder, loader, shaderLoader, objectManager) {
+        this.canvas = canvas;
         this.device = device;
+        this.passEncoder = passEncoder;
         this.loader = loader;
         this.shaderLoader = shaderLoader;
         this.objectManager = objectManager;
@@ -31,7 +35,7 @@ export class EnvRenderer {
         this.floor = new Floor(this.loader);
         await this.floor.init();
         //Chambers
-        this.chambers = new Chambers(this.loader, this.shaderLoader);
+        this.chambers = new Chambers(this.canvas, this.device, this.passEncoder, this.loader, this.shaderLoader);
         await this.chambers.init();
     }
 }

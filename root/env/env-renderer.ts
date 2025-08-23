@@ -7,6 +7,8 @@ import { Floor } from "./structures/floor/floor.js";
 
 export class EnvRenderer {
     private device: GPUDevice;
+    private canvas: HTMLCanvasElement;
+    public passEncoder: GPURenderPassEncoder;
     private loader: Loader;
     private shaderLoader: ShaderLoader;
 
@@ -18,12 +20,16 @@ export class EnvRenderer {
     public objectManager?: ObjectManager;
 
     constructor(
-        device: GPUDevice, 
+        canvas: HTMLCanvasElement,
+        device: GPUDevice,
+        passEncoder: GPURenderPassEncoder,
         loader: Loader,
         shaderLoader: ShaderLoader,
         objectManager?: ObjectManager
     ) {
+        this.canvas = canvas;
         this.device = device;
+        this.passEncoder = passEncoder;
         this.loader = loader;
         this.shaderLoader = shaderLoader;
         this.objectManager = objectManager;
@@ -48,7 +54,13 @@ export class EnvRenderer {
         await this.floor.init();
         
         //Chambers
-        this.chambers = new Chambers(this.loader, this.shaderLoader);
+        this.chambers = new Chambers(
+            this.canvas,
+            this.device,
+            this.passEncoder,
+            this.loader, 
+            this.shaderLoader
+        );
         await this.chambers.init();
     }
 }
