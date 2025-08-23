@@ -7,8 +7,15 @@ export class Chambers {
     blocks = [];
     blockIdCounter = 0;
     _Collider = [];
+    chamberTransform = mat4.create();
     src = new Map();
     id = 'default-chamber';
+    //Props
+    genPos = {
+        x: 5.0,
+        y: 0.0,
+        z: 5.0
+    };
     collisionScale = {
         w: 40.0,
         h: 40.0,
@@ -63,6 +70,19 @@ export class Chambers {
             sampler: source.sampler,
             resourceId: this.id
         };
+        this.updateMatrix(block, position, size, rotation);
+        const worldCenter = vec3.create();
+        vec3.transformMat4(worldCenter, vec3.create(), block.modelMatrix);
+        const collider = isBlock ?
+            new BoxCollider([
+                size.w * this.collisionScale.w,
+                size.h * this.collisionScale.h,
+                size.d * this.collisionScale.d
+            ], worldCenter) : null;
+        this.blocks.push(block);
+        return { block, collider };
+    }
+    updateMatrix(block, position, size, rotation) {
         mat4.identity(block.modelMatrix);
         if (rotation) {
             switch (rotation.axis) {
@@ -78,48 +98,55 @@ export class Chambers {
             }
         }
         mat4.translate(block.modelMatrix, block.modelMatrix, position);
+        mat4.multiply(block.modelMatrix, this.chamberTransform, block.modelMatrix);
         mat4.scale(block.modelMatrix, block.modelMatrix, [size.w, size.h, size.d]);
-        const worldCenter = vec3.create();
-        vec3.transformMat4(worldCenter, vec3.create(), block.modelMatrix);
-        const collider = isBlock ?
-            new BoxCollider([
-                size.w * this.collisionScale.w,
-                size.h * this.collisionScale.h,
-                size.d * this.collisionScale.d
-            ], worldCenter) : null;
-        this.blocks.push(block);
-        return { block, collider };
     }
     async generate() {
         this.blocks = [];
         this._Collider = [];
         const patternDataArray = await this.loadPatternData();
         const patternData = patternDataArray[0];
-        const patterns = {
-            fChamber: {
-                pos: {
-                    x: -2.0,
-                    y: 0.0,
-                    z: 19.0
-                },
-                pattern: patternData.patterns.chamber
+        const configs = [
+            {
+                //Front
+                pos: { x: 0.0, y: 0.0, z: 0.0 },
+                rotation: { axis: 'y', angle: 0.0 },
+                pattern: patternData.patterns.chamber.front
             },
-            sChamber: {
-                pos: {
-                    x: -20.0,
-                    y: 0.0,
-                    z: 15.0
-                },
-                rotation: {
-                    axis: 'y',
-                    angle: Math.PI / 2
-                },
-                pattern: patternData.patterns.chamber
-            }
-        };
-        for (const [_, data] of Object.entries(patterns)) {
-            const position = vec3.fromValues(data.pos.x, data.pos.y, data.pos.z);
-            const { blocks, colliders } = await this.structureManager.createFromPattern(data.pattern, position, this.create.bind(this), data.rotation);
+            {
+                //Right
+                pos: { x: 0, y: 0.0, z: 0.0 },
+                rotation: { axis: 'y', angle: Math.PI / 2 },
+                pattern: patternData.patterns.chamber.right
+            },
+            {
+                //Left
+                pos: { x: 0.0, y: 0.0, z: 4.8 },
+                rotation: { axis: 'y', angle: Math.PI / 2 },
+                pattern: patternData.patterns.chamber.left
+            },
+            {
+                //Back
+                pos: { x: 0.0, y: 0.0, z: -4.8 },
+                rotation: { axis: 'y', angle: 0.0 },
+                pattern: patternData.patterns.chamber.back
+            },
+            {
+                //Ceiling
+                pos: { x: 0.0, y: -5.6, z: -5.6 },
+                rotation: { axis: 'x', angle: Math.PI / 2 },
+                pattern: patternData.patterns.chamber.ceiling
+            },
+            {
+                //Floor
+                pos: { x: 0.0, y: -5.6, z: -0.8 },
+                rotation: { axis: 'x', angle: Math.PI / 2 },
+                pattern: patternData.patterns.chamber.floor
+            },
+        ];
+        for (const config of configs) {
+            const position = vec3.fromValues(config.pos.x, config.pos.y, config.pos.z);
+            const { blocks, colliders } = await this.structureManager.createFromPattern(config.pattern, position, this.create.bind(this), config.rotation);
             this.blocks.push(...blocks.filter(b => b !== null));
             this._Collider.push(...colliders.filter(c => c !== null));
         }
@@ -139,7 +166,7 @@ export class Chambers {
         };
     }
     getAllColliders() {
-        return this._Collider.map((collider, i) => ({
+        return this._Collider.map(collider => ({
             collider,
             position: vec3.clone(collider)['_offset'],
             type: this.getCollisionInfo().type
@@ -160,8 +187,13 @@ export class Chambers {
             throw err;
         }
     }
+    setUpdatedPosition(position) {
+        mat4.identity(this.chamberTransform);
+        mat4.translate(this.chamberTransform, this.chamberTransform, position);
+    }
     async init() {
         await this.loadAssets();
+        this.setUpdatedPosition(vec3.fromValues(this.genPos.x, this.genPos.y, this.genPos.z));
         await this.generate();
     }
 }
