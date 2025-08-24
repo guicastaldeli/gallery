@@ -304,12 +304,14 @@ export class Chambers {
             default:
                 console.warn(`Unknown face index err: ${faceIndex}`);
         }
+        return faceModelMatrix;
     }
     async init() {
         try {
             await this.loadAssets();
             this.setUpdatedPosition(vec3.fromValues(this.chamberPos.x, this.chamberPos.y, this.chamberPos.z));
             await this.generate();
+            await this.stencilRenderer.init();
         }
         catch (err) {
             console.log(err);
@@ -318,7 +320,8 @@ export class Chambers {
     }
     async initStencil(viewProjectionMatrix, passEncoder) {
         try {
-            await this.stencilRenderer.init();
+            if (!viewProjectionMatrix || !passEncoder)
+                throw new Error('err');
             await this.renderStencil(viewProjectionMatrix, passEncoder);
         }
         catch (err) {

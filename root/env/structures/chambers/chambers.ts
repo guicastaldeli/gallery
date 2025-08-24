@@ -414,6 +414,8 @@ export class Chambers implements ICollidable {
             default:
                 console.warn(`Unknown face index err: ${faceIndex}`);
         }
+
+        return faceModelMatrix;
     }
 
     public async init(): Promise<void> {
@@ -427,6 +429,7 @@ export class Chambers implements ICollidable {
                 )
             );
             await this.generate();
+            await this.stencilRenderer.init();
         } catch(err) {
             console.log(err);
             throw err;
@@ -435,7 +438,7 @@ export class Chambers implements ICollidable {
 
     public async initStencil(viewProjectionMatrix: mat4, passEncoder: GPURenderPassEncoder): Promise<void> {
         try {
-            await this.stencilRenderer.init();
+            if(!viewProjectionMatrix || !passEncoder) throw new Error('err');
             await this.renderStencil(viewProjectionMatrix, passEncoder);
         } catch(err) {
             console.log(err);

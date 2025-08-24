@@ -47,7 +47,7 @@ export class StencilRenderer {
         this.stencilMaskValues = new Uint32Array([1, 2, 3, 4, 5, 6]);
         this.stencilTexture = this.device.createTexture({
             size: [this.canvas.width, this.canvas.height],
-            format: 'stencil8',
+            format: 'depth24plus-stencil8',
             usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
         });
         const pipelineLayout = this.device.createPipelineLayout({
@@ -59,14 +59,24 @@ export class StencilRenderer {
             layout: pipelineLayout,
             vertex: {
                 module: stencilMaskShader,
-                entryPoint: 'vs_main'
+                entryPoint: 'vs_main',
+                buffers: [{
+                        arrayStride: 3 * 4,
+                        attributes: [
+                            {
+                                shaderLocation: 0,
+                                offset: 0,
+                                format: 'float32x3'
+                            }
+                        ]
+                    }]
             },
             fragment: {
                 module: stencilMaskShader,
                 entryPoint: 'fs_main',
                 targets: [{
-                        format: 'r32uint',
-                        writeMask: 0xFFFFFFFF
+                        format: navigator.gpu.getPreferredCanvasFormat(),
+                        writeMask: GPUColorWrite.ALL
                     }]
             },
             primitive: {
@@ -80,7 +90,7 @@ export class StencilRenderer {
                     compare: 'always',
                     passOp: 'replace'
                 },
-                format: 'stencil8'
+                format: 'depth24plus-stencil8'
             }
         });
         //Geometry
@@ -89,7 +99,27 @@ export class StencilRenderer {
             layout: pipelineLayout,
             vertex: {
                 module: stencilGeometryShader,
-                entryPoint: 'vs_main'
+                entryPoint: 'vs_main',
+                buffers: [{
+                        arrayStride: 8 * 4,
+                        attributes: [
+                            {
+                                shaderLocation: 0,
+                                offset: 0,
+                                format: 'float32x3'
+                            },
+                            {
+                                shaderLocation: 1,
+                                offset: 3 * 4,
+                                format: 'float32x2'
+                            },
+                            {
+                                shaderLocation: 2,
+                                offset: 5 * 4,
+                                format: 'float32x2'
+                            }
+                        ]
+                    }]
             },
             fragment: {
                 module: stencilGeometryShader,
@@ -131,7 +161,7 @@ export class StencilRenderer {
             entries: [
                 {
                     binding: 0,
-                    visibility: GPUShaderStage.VERTEX,
+                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
                     buffer: { type: 'uniform' }
                 },
                 {
@@ -156,7 +186,7 @@ export class StencilRenderer {
     initBuffers() {
         //View Projeciton
         this.modelViewProjectionBuffer = this.device.createBuffer({
-            size: 64,
+            size: 160,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         });
         //Model Matrix

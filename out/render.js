@@ -23,9 +23,6 @@ let viewProjectionMatrix;
 let depthTexture = null;
 let depthTextureWidth = 0;
 let depthTextureHeight = 0;
-let shadowDepthTexture = null;
-let shadowDepthTextureWidth = 0;
-let shadowDepthTextureHeight = 0;
 let tick;
 let camera;
 let input;
@@ -42,15 +39,14 @@ let wireframeMode = false;
 let wireframePipeline = null;
 async function initShaders() {
     try {
-        const [vertexSrc, fragSrc, ambientLightSrc, directionalLightSrc, pointLightSrc, glowSrc] = await Promise.all([
+        const [vertexSrc, fragSrc, ambientLightSrc, directionalLightSrc, glowSrc] = await Promise.all([
             shaderLoader.loader('./.shaders/vertex.wgsl'),
             shaderLoader.sourceLoader('./.shaders/frag.wgsl'),
             shaderLoader.sourceLoader('./lightning/shaders/ambient-light.wgsl'),
             shaderLoader.sourceLoader('./lightning/shaders/directional-light.wgsl'),
-            shaderLoader.sourceLoader('./lightning/shaders/point-light.wgsl'),
             shaderLoader.sourceLoader('./.shaders/glow.wgsl'),
         ]);
-        const combinedFragCode = await shaderComposer.combineShader(fragSrc, ambientLightSrc, directionalLightSrc, pointLightSrc, glowSrc);
+        const combinedFragCode = await shaderComposer.combineShader(fragSrc, ambientLightSrc, directionalLightSrc, glowSrc);
         return {
             vertexCode: vertexSrc,
             fragCode: combinedFragCode
@@ -110,60 +106,10 @@ async function setBindGroups() {
                 }
             ]
         });
-        const pointLightBindGroupLayout = device.createBindGroupLayout({
-            entries: [
-                {
-                    binding: 0,
-                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-                    buffer: { type: 'uniform' }
-                },
-                {
-                    binding: 1,
-                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-                    buffer: { type: 'read-only-storage' }
-                },
-                {
-                    binding: 2,
-                    visibility: GPUShaderStage.FRAGMENT,
-                    texture: { sampleType: 'depth' }
-                },
-                {
-                    binding: 3,
-                    visibility: GPUShaderStage.FRAGMENT,
-                    sampler: { type: 'comparison' }
-                },
-                {
-                    binding: 4,
-                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-                    buffer: { type: 'read-only-storage' }
-                },
-                {
-                    binding: 5,
-                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-                    buffer: { type: 'read-only-storage' }
-                },
-                {
-                    binding: 6,
-                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-                    buffer: { type: 'uniform' }
-                },
-                {
-                    binding: 7,
-                    visibility: GPUShaderStage.FRAGMENT,
-                    texture: { sampleType: 'depth' }
-                },
-                {
-                    binding: 8,
-                    visibility: GPUShaderStage.FRAGMENT,
-                    sampler: { type: 'comparison' }
-                }
-            ]
-        });
         return {
             bindGroupLayout,
             textureBindGroupLayout,
-            lightningBindGroupLayout,
-            pointLightBindGroupLayout
+            lightningBindGroupLayout
         };
     }
     catch (err) {
@@ -180,13 +126,12 @@ async function initPipeline() {
     try {
         const { vertexCode, fragCode } = await initShaders();
         const fragCodeSrc = shaderComposer.createShaderModule(fragCode);
-        const { bindGroupLayout, textureBindGroupLayout, lightningBindGroupLayout, pointLightBindGroupLayout } = await getBindGroups();
+        const { bindGroupLayout, textureBindGroupLayout, lightningBindGroupLayout } = await getBindGroups();
         const pipelineLayout = device.createPipelineLayout({
             bindGroupLayouts: [
                 bindGroupLayout,
                 textureBindGroupLayout,
-                lightningBindGroupLayout,
-                pointLightBindGroupLayout
+                lightningBindGroupLayout
             ]
         });
         pipeline = device.createRenderPipeline({
@@ -269,7 +214,7 @@ async function initPipeline() {
             depthStencil: {
                 depthWriteEnabled: true,
                 depthCompare: 'less',
-                format: 'depth24plus'
+                format: 'depth24plus-stencil8'
             }
         });
         wireframePipeline = device.createRenderPipeline({
@@ -351,7 +296,7 @@ async function initPipeline() {
             depthStencil: {
                 depthWriteEnabled: true,
                 depthCompare: 'less',
-                format: 'depth24plus'
+                format: 'depth24plus-stencil8'
             }
         });
     }
@@ -379,7 +324,7 @@ async function getPipeline(passEncoder) {
     passEncoder.setPipeline(currentPipeline);
 }
 async function setBuffers(passEncoder, viewProjectionMatrix, modelMatrix, currentTime) {
-    const { bindGroupLayout, textureBindGroupLayout, lightningBindGroupLayout, pointLightBindGroupLayout } = await getBindGroups();
+    const { bindGroupLayout, textureBindGroupLayout, lightningBindGroupLayout } = await getBindGroups();
     buffers = await initBuffers(device);
     mat4.identity(modelMatrix);
     const renderBuffers = [...await envRenderer.get()];
@@ -408,9 +353,6 @@ async function setBuffers(passEncoder, viewProjectionMatrix, modelMatrix, curren
     const directionalLightBuffer = lightningManager.getLightBuffer('directional');
     if (!directionalLightBuffer)
         throw new Error('Directional light err');
-    const pointLightBindGroup = lightningManager.getPointLightBindGroup(pointLightBindGroupLayout, shadowDepthTexture);
-    if (!pointLightBindGroup)
-        throw new Error('Point light err');
     const lightningBindGroup = lightningManager.getLightningBindGroup(depthTexture, lightningBindGroupLayout);
     if (!lightningBindGroup)
         throw new Error('Lightning group err');
@@ -460,7 +402,6 @@ async function setBuffers(passEncoder, viewProjectionMatrix, modelMatrix, curren
         passEncoder.setBindGroup(0, bindGroup, [offset]);
         passEncoder.setBindGroup(1, textureBindGroup);
         passEncoder.setBindGroup(2, lightningBindGroup);
-        passEncoder.setBindGroup(3, pointLightBindGroup);
         passEncoder.drawIndexed(data.indexCount);
     }
 }
@@ -602,20 +543,11 @@ export async function render(canvas) {
         if (!depthTexture) {
             depthTexture = device.createTexture({
                 size: [canvas.width, canvas.height],
-                format: 'depth24plus',
+                format: 'depth24plus-stencil8',
                 usage: GPUTextureUsage.RENDER_ATTACHMENT
             });
             depthTextureWidth = canvas.width;
             depthTextureHeight = canvas.height;
-        }
-        if (!shadowDepthTexture) {
-            shadowDepthTexture = device.createTexture({
-                size: [canvas.width, canvas.height],
-                format: 'depth24plus',
-                usage: GPUTextureUsage.TEXTURE_BINDING
-            });
-            shadowDepthTextureWidth = canvas.width;
-            shadowDepthTextureHeight = canvas.height;
         }
         passEncoder = commandEncoder.beginRenderPass({
             colorAttachments: [{
@@ -629,11 +561,9 @@ export async function render(canvas) {
                 depthClearValue: 1.0,
                 depthLoadOp: 'clear',
                 depthStoreOp: 'store',
-                /*
+                stencilClearValue: 0.0,
                 stencilLoadOp: 'clear',
-                stencilStoreOp: 'store',
-                stencilClearValue: 1.0
-                */
+                stencilStoreOp: 'store'
             }
         });
         passEncoder.setViewport(0, 0, canvas.width, canvas.height, 0, 1);

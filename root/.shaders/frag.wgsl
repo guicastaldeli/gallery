@@ -42,18 +42,6 @@ fn main(input: FragmentInput) -> @location(0) vec4f {
     var finalColor = applyAmbientLight(baseColor);
     finalColor += applyDirectionalLight(baseColor, calculatedNormal);
 
-    for(var i = 0u; i < pointLightCount; i++) {
-        let light = pointLights[i];
-        let lightPos = light.position.xyz;
-        
-        finalColor += applyPointLight(
-            baseColor,
-            calculatedNormal,
-            worldPos,
-            pointLights[i]
-        );
-    }
-
     if(input.isEmissive > 0.5) {
         var thickness = 1.0;
         var alpha = texColor.a;

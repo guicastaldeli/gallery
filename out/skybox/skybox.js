@@ -95,7 +95,7 @@ export class Skybox {
                 depthStencil: {
                     depthWriteEnabled: true,
                     depthCompare: 'less-equal',
-                    format: 'depth24plus'
+                    format: 'depth24plus-stencil8'
                 }
             });
             this.bindGroup = this.device.createBindGroup({

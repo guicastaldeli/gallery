@@ -137,7 +137,7 @@ export class Stars {
                 depthStencil: {
                     depthWriteEnabled: true,
                     depthCompare: 'less-equal',
-                    format: 'depth24plus'
+                    format: 'depth24plus-stencil8'
                 }
             });
             this.bindGroups = this.uniformBuffers.map(buffer => {

@@ -29,6 +29,7 @@ fn vs_main(input: VertexInput) -> VertexOutput {
 }
 
 @fragment
-fn fs_main(input: VertexOutput) -> @location(0) u32 {
-    return input.faceId + 1;
+fn fs_main(input: VertexOutput) -> @location(0) vec4f {
+    let stencilValue = f32(input.faceId + 1);
+    return vec4f(stencilValue, 0.0, 0.0, 1.0);
 }
