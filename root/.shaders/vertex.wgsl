@@ -6,7 +6,7 @@ struct Uniforms {
     cameraPos: vec3f,
     pad2: f32,
     time: f32,
-    isEmissive: f32,
+    isChamber: f32,
     pad3: f32
 }
 
@@ -18,7 +18,7 @@ struct VertexInput {
     @location(2) normal: vec3f,
     @location(3) color: vec3f,
     @location(5) viewDir: vec3f,
-    @location(6) isEmissive: f32
+    @location(6) isChamber: f32
 }
 
 struct VertexOutput {
@@ -28,37 +28,20 @@ struct VertexOutput {
     @location(2) normal: vec3f,
     @location(3) worldPos: vec3f,
     @location(5) viewDir: vec3f,
-    @location(6) isEmissive: f32
+    @location(6) isChamber: f32
 }
 
 @vertex
 fn main(input: VertexInput) -> VertexOutput {
     var output: VertexOutput;
 
-    if(uniforms.isEmissive > 0.5) {
-        let viewDir = normalize(uniforms.cameraPos - (uniforms.modelMatrix * vec4f(.0, 0.0, 0.0, 1.0)).xyz);
-        let up = vec3f(0.0, 1.0, 0.0);
-        let right = normalize(cross(up, viewDir));
-        let billboardUp = normalize(cross(viewDir, right));
-        let billboardMatrix = mat3x3f(
-            right,
-            billboardUp,
-            viewDir
-        );
-
-        let billboardPos = billboardMatrix * input.position;
-        output.Position = uniforms.mvpMatrix * vec4f(billboardPos, 1.0);
-        output.worldPos = (uniforms.modelMatrix * vec4f(billboardPos, 1.0)).xyz;
-        output.normal = viewDir;
-    } else {
-        output.Position = uniforms.mvpMatrix * vec4f(input.position, 1.0);
-        output.worldPos = (uniforms.modelMatrix * vec4f(input.position, 1.0)).xyz;
-        output.normal = normalize(uniforms.normalMatrix * input.normal);
-    }
+    output.Position = uniforms.mvpMatrix * vec4f(input.position, 1.0);
+    output.worldPos = (uniforms.modelMatrix * vec4f(input.position, 1.0)).xyz;
+    output.normal = normalize(uniforms.normalMatrix * input.normal);
 
     output.color = input.color;
     output.texCoord = input.texCoord;
-    output.isEmissive = uniforms.isEmissive;
+    output.isChamber = uniforms.isChamber;
     output.viewDir = uniforms.cameraPos - output.worldPos;
     return output;
 }

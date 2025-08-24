@@ -1,9 +1,7 @@
-import { Chambers } from "./structures/chambers/chambers.js";
-import { Floor } from "./structures/floor/floor.js";
+import { Chambers } from "./structures/chambers.js";
+import { Floor } from "./structures/floor.js";
 export class EnvRenderer {
     device;
-    canvas;
-    passEncoder;
     loader;
     shaderLoader;
     viewProjectionMatrix;
@@ -12,14 +10,11 @@ export class EnvRenderer {
     floor;
     //Objects
     objectManager;
-    constructor(canvas, device, passEncoder, loader, shaderLoader, viewProjectionMatrix, objectManager) {
-        this.canvas = canvas;
+    constructor(device, loader, shaderLoader, objectManager) {
         this.device = device;
-        this.passEncoder = passEncoder;
         this.loader = loader;
         this.shaderLoader = shaderLoader;
         this.objectManager = objectManager;
-        this.viewProjectionMatrix = viewProjectionMatrix;
     }
     async update(deltaTime) {
         if (!this.objectManager)
@@ -37,10 +32,7 @@ export class EnvRenderer {
         this.floor = new Floor(this.loader);
         await this.floor.init();
         //Chambers
-        this.chambers = new Chambers(this.canvas, this.device, this.loader, this.shaderLoader);
+        this.chambers = new Chambers(this.device, this.loader, this.shaderLoader);
         await this.chambers.init();
-    }
-    async lateRenderer() {
-        await this.chambers.initStencil(this.viewProjectionMatrix, this.passEncoder);
     }
 }

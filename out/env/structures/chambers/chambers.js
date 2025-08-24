@@ -19,7 +19,7 @@ export class Chambers {
     chamberPos = {
         x: 5.0,
         y: 0.0,
-        z: 5.0
+        z: 8.0
     };
     collisionScale = {
         w: 40.0,
@@ -210,7 +210,8 @@ export class Chambers {
                 const modelViewProjection = mat4.create();
                 mat4.multiply(modelViewProjection, viewProjectionMatrix, faceModelMatrix);
                 const faceColor = this.stencilRenderer.getFaceColor(i);
-                const buffers = this.stencilRenderer.updateBuffers(modelViewProjection, faceModelMatrix, this.stencilRenderer.stencilMaskValues[i], faceColor);
+                const buffers = this.stencilRenderer.createObjectBuffers();
+                this.stencilRenderer.updateBuffers(buffers, modelViewProjection, faceModelMatrix, i + 1, faceColor);
                 const bindGroup = this.device.createBindGroup({
                     layout: this.stencilRenderer.stencilMaskPipeline.getBindGroupLayout(0),
                     entries: [
@@ -233,7 +234,6 @@ export class Chambers {
                     ]
                 });
                 passEncoder.setBindGroup(0, bindGroup);
-                //passEncoder.drawIndexed(faceIndexCount, 1, 0, 0, 0);
             }
             passEncoder.setPipeline(this.stencilRenderer.stencilGeometryPipeline);
             for (const block of this.blocks) {
@@ -241,7 +241,8 @@ export class Chambers {
                 mat4.multiply(modelViewProjection, viewProjectionMatrix, block.modelMatrix);
                 const stencilValue = this.stencilRenderer.getStencilValueGeometry(block);
                 const faceColor = this.stencilRenderer.getFaceColor(stencilValue - 1);
-                const buffers = this.stencilRenderer.updateBuffers(modelViewProjection, block.modelMatrix, stencilValue, faceColor);
+                const buffers = this.stencilRenderer.createObjectBuffers();
+                this.stencilRenderer.updateBuffers(buffers, modelViewProjection, block.modelMatrix, stencilValue, faceColor);
                 const bindGroup = this.device.createBindGroup({
                     layout: this.stencilRenderer.stencilMaskPipeline.getBindGroupLayout(0),
                     entries: [

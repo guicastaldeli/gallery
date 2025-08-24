@@ -1,5 +1,6 @@
 @group(1) @binding(0) var textureSampler: sampler;
 @group(1) @binding(1) var textureMap: texture_2d<f32>;
+@group(3) @binding(0) var<uniform> chamberColors: array<vec4f, 4>;
 
 struct FragmentInput {
     @location(0) texCoord: vec2f,
@@ -7,7 +8,7 @@ struct FragmentInput {
     @location(2) normal: vec3f,
     @location(3) worldPos: vec3f,
     @location(5) cameraPos: vec3f,
-    @location(6) isEmissive: f32,
+    @location(6) isChamber: f32,
     @builtin(position) Position: vec4f
 }
 
@@ -42,27 +43,10 @@ fn main(input: FragmentInput) -> @location(0) vec4f {
     var finalColor = applyAmbientLight(baseColor);
     finalColor += applyDirectionalLight(baseColor, calculatedNormal);
 
-    if(input.isEmissive > 0.5) {
-        var thickness = 1.0;
-        var alpha = texColor.a;
-        
-        let texSize = vec2f(textureDimensions(textureMap));
-        let aspectRatio = 2.0;
-
-        let uvCenter = vec2f(0.5, 0.5);
-        let uvOffset = (input.texCoord - uvCenter) * vec2f(aspectRatio, 4.0);
-        let distToCenter = length(uvOffset);
-        
-        alpha = alpha * distToCenter;
-        texColor.a = alpha;
-        finalColor += applyEmissiveGlow(
-            baseColor,
-            worldPos,
-            calculatedNormal,
-            input.isEmissive,
-            ambientLight,
-            cameraPos
-        );
+    if(input.isChamber > 0.5) {
+        let chamberIndex = u32(input.isChamber) % 4u;
+        let chamberColor = chamberColors[chamberIndex].rgb;
+        finalColor = mix(finalColor, chamberColor, 0.3);
     }
 
     finalColor = max(finalColor, vec3f(0.0));

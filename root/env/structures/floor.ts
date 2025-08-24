@@ -1,7 +1,7 @@
-import { mat3, mat4, vec3 } from "../../../../node_modules/gl-matrix/esm/index.js";
-import { EnvBufferData } from "../../env-buffers.js";
-import { Loader } from "../../../loader.js";
-import { BoxCollider, Collider, CollisionInfo, CollisionResponse, ICollidable } from "../../../collision/collider.js";
+import { mat3, mat4, vec3 } from "../../../node_modules/gl-matrix/esm/index.js";
+import { EnvBufferData } from "../env-buffers.js";
+import { Loader } from "../../loader.js";
+import { BoxCollider, Collider, CollisionInfo, CollisionResponse, ICollidable } from "../../collision/collider.js";
 
 export class Floor implements ICollidable {
     private loader: Loader;
@@ -42,7 +42,7 @@ export class Floor implements ICollidable {
                 normalMatrix: mat3.create(),
                 texture: texture,
                 sampler: sampler,
-                isEmissive: [0.0, 0.0, 0.0]
+                isChamber: [0.0, 0.0, 0.0]
             }
 
             return data;
@@ -62,7 +62,7 @@ export class Floor implements ICollidable {
             normalMatrix: mat3.clone(data.normalMatrix),
             texture: data.texture,
             sampler: data.sampler,
-            isEmissive: [...data.isEmissive]
+            isChamber: [...data.isChamber]
         };
     }
 

@@ -10,7 +10,7 @@ export type EnvBufferData = {
     texture: GPUTexture;
     sampler: GPUSampler;
     indexData?: Uint16Array;
-    isEmissive?: vec3;
+    isChamber?: vec3;
 }
 
 export async function initEnvBuffers(device: GPUDevice): Promise<EnvBufferData> {
@@ -52,7 +52,7 @@ export async function initEnvBuffers(device: GPUDevice): Promise<EnvBufferData> 
             normalMatrix: normalMatrix,
             texture: texture,
             sampler: sampler,
-            isEmissive: [1.0, 1.0, 1.0]
+            isChamber: [0.0, 0.0, 0.0]
         }
     } catch(err) {
         console.log(err);

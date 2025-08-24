@@ -1,5 +1,5 @@
 import { mat3, mat4, vec3 } from "../node_modules/gl-matrix/esm/index.js";
-import { canvas, context, device } from "./init.js";
+import { context, device } from "./init.js";
 import { initBuffers } from "./buffers.js";
 import { Tick } from "./tick.js";
 import { Camera } from "./camera.js";
@@ -106,10 +106,23 @@ async function setBindGroups() {
                 }
             ]
         });
+        const chamberBindGroupLayout = device.createBindGroupLayout({
+            entries: [
+                {
+                    binding: 0,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    buffer: {
+                        type: 'uniform',
+                        minBindingSize: 64
+                    }
+                }
+            ]
+        });
         return {
             bindGroupLayout,
             textureBindGroupLayout,
-            lightningBindGroupLayout
+            lightningBindGroupLayout,
+            chamberBindGroupLayout
         };
     }
     catch (err) {
@@ -126,12 +139,13 @@ async function initPipeline() {
     try {
         const { vertexCode, fragCode } = await initShaders();
         const fragCodeSrc = shaderComposer.createShaderModule(fragCode);
-        const { bindGroupLayout, textureBindGroupLayout, lightningBindGroupLayout } = await getBindGroups();
+        const { bindGroupLayout, textureBindGroupLayout, lightningBindGroupLayout, chamberBindGroupLayout } = await getBindGroups();
         const pipelineLayout = device.createPipelineLayout({
             bindGroupLayouts: [
                 bindGroupLayout,
                 textureBindGroupLayout,
-                lightningBindGroupLayout
+                lightningBindGroupLayout,
+                chamberBindGroupLayout
             ]
         });
         pipeline = device.createRenderPipeline({
@@ -324,7 +338,7 @@ async function getPipeline(passEncoder) {
     passEncoder.setPipeline(currentPipeline);
 }
 async function setBuffers(passEncoder, viewProjectionMatrix, modelMatrix, currentTime) {
-    const { bindGroupLayout, textureBindGroupLayout, lightningBindGroupLayout } = await getBindGroups();
+    const { bindGroupLayout, textureBindGroupLayout, lightningBindGroupLayout, chamberBindGroupLayout } = await getBindGroups();
     buffers = await initBuffers(device);
     mat4.identity(modelMatrix);
     const renderBuffers = [...await envRenderer.get()];
@@ -371,9 +385,8 @@ async function setBuffers(passEncoder, viewProjectionMatrix, modelMatrix, curren
         const cameraPos = camera.controller.getCameraPosition();
         uniformData.set(cameraPos, 48);
         uniformData.set([currentTime / 1000], 51);
-        const isEmissive = data.isEmissive ? data.isEmissive[0] > 0 : false;
-        uniformData.set(isEmissive ? [1.0, 1.0, 1.0] : [0.0, 0.0, 0.0], 53);
-        isEmissive ? uniformData.set([1.0, 1.0, 1.0], 53) : uniformData.set([0.0, 0.0, 0.0], 53);
+        const isChamber = data.isChamber ? data.isChamber[0] : 0.0;
+        uniformData.set([isChamber], 53);
         device.queue.writeBuffer(uniformBuffer, offset, uniformData);
     }
     for (let i = 0; i < renderBuffers.length; i++) {
@@ -396,12 +409,22 @@ async function setBuffers(passEncoder, viewProjectionMatrix, modelMatrix, curren
                 }
             ]
         });
+        const chamberBindGroup = device.createBindGroup({
+            layout: chamberBindGroupLayout,
+            entries: [
+                {
+                    binding: 0,
+                    resource: envRenderer.chambers.getChamberColorBuffer()
+                }
+            ]
+        });
         passEncoder.setVertexBuffer(0, data.vertex);
         passEncoder.setVertexBuffer(1, data.color);
         passEncoder.setIndexBuffer(data.index, 'uint16');
         passEncoder.setBindGroup(0, bindGroup, [offset]);
         passEncoder.setBindGroup(1, textureBindGroup);
         passEncoder.setBindGroup(2, lightningBindGroup);
+        passEncoder.setBindGroup(3, chamberBindGroup);
         passEncoder.drawIndexed(data.indexCount);
     }
 }
@@ -421,7 +444,7 @@ export function parseColor(rgb) {
 async function ambientLight() {
     const color = 'rgb(255, 255, 255)';
     const colorArray = parseColor(color);
-    const light = new AmbientLight(colorArray, 0.3);
+    const light = new AmbientLight(colorArray, 1.0);
     lightningManager.addAmbientLight('ambient', light);
     lightningManager.updateLightBuffer('ambient');
 }
@@ -436,7 +459,7 @@ async function directionalLight() {
     const colorArray = parseColor(color);
     const direction = vec3.fromValues(pos.x, pos.y, pos.z);
     vec3.normalize(direction, direction);
-    const light = new DirectionalLight(colorArray, direction, 1.0);
+    const light = new DirectionalLight(colorArray, direction, 0.0);
     lightningManager.addDirectionalLight('directional', light);
     lightningManager.updateLightBuffer('directional');
 }
@@ -448,9 +471,9 @@ async function errorHandler() {
         console.error('Pipeline error:', pipelineError);
 }
 //Env
-async function renderEnv(deltaTime, passEncoder, viewProjectionMatrix) {
+async function renderEnv(deltaTime) {
     if (!envRenderer) {
-        envRenderer = new EnvRenderer(canvas, device, passEncoder, loader, shaderLoader, viewProjectionMatrix, objectManager);
+        envRenderer = new EnvRenderer(device, loader, shaderLoader);
         await envRenderer.render();
         await envRenderer.update(deltaTime);
         objectManager.deps.floor = envRenderer.floor;
@@ -463,7 +486,7 @@ async function lateRenderers(passEncoder, viewProjectionMatrix, deltaTime) {
         await skybox.init();
     }
     await skybox.render(passEncoder, viewProjectionMatrix, deltaTime);
-    await envRenderer.lateRenderer();
+    //await envRenderer.lateRenderer();
 }
 export async function render(canvas) {
     try {
@@ -514,7 +537,7 @@ export async function render(canvas) {
             };
             objectManager = new ObjectManager(deps);
             await objectManager.ready();
-            await renderEnv(deltaTime, passEncoder, viewProjectionMatrix);
+            await renderEnv(deltaTime);
         }
         //Colliders
         if (!getColliders) {
@@ -561,7 +584,6 @@ export async function render(canvas) {
                 depthClearValue: 1.0,
                 depthLoadOp: 'clear',
                 depthStoreOp: 'store',
-                stencilClearValue: 0.0,
                 stencilLoadOp: 'clear',
                 stencilStoreOp: 'store'
             }
@@ -569,7 +591,6 @@ export async function render(canvas) {
         passEncoder.setViewport(0, 0, canvas.width, canvas.height, 0, 1);
         passEncoder.setPipeline(pipeline);
         objectManager.deps.passEncoder = passEncoder;
-        envRenderer.passEncoder = passEncoder;
         const modelMatrix = mat4.create();
         viewProjectionMatrix = mat4.create();
         const projectionMatrix = camera.getProjectionMatrix(canvas.width / canvas.height);

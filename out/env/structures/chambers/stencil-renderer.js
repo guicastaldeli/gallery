@@ -1,4 +1,3 @@
-import { vec3 } from "../../../../node_modules/gl-matrix/esm/index.js";
 export class StencilRenderer {
     device;
     canvas;
@@ -12,12 +11,17 @@ export class StencilRenderer {
     modelMatrixBuffer;
     stencilValueBuffer;
     faceColorBuffer;
+    uniformBuffer;
     constructor(device, canvas, shaderLoader) {
         this.device = device;
         this.canvas = canvas;
         this.shaderLoader = shaderLoader;
         this.setColors();
         this.initBuffers();
+        this.uniformBuffer = this.device.createBuffer({
+            size: 16 * 4 + 16 * 4 + 4 + 16,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
     }
     setColors() {
         this.faceColors = [
@@ -205,7 +209,34 @@ export class StencilRenderer {
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         });
     }
-    updateBuffers(modelViewProjectionMatrix, modelMatrix, stencilValue, faceColor) {
+    createObjectBuffers() {
+        const mvpBuffer = this.device.createBuffer({
+            size: 160,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        //Model Matrix
+        const modelMatrixBuffer = this.device.createBuffer({
+            size: 64,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        //Stencil Value
+        const stencilValueBuffer = this.device.createBuffer({
+            size: 4,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        //Face Color
+        const faceColorBuffer = this.device.createBuffer({
+            size: 16,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        return {
+            mvp: mvpBuffer,
+            modelMatrix: modelMatrixBuffer,
+            stencilValue: stencilValueBuffer,
+            faceColor: faceColorBuffer
+        };
+    }
+    updateBuffers(buffers, modelViewProjectionMatrix, modelMatrix, stencilValue, faceColor) {
         const mvpArray = new Float32Array(16);
         const modelArray = new Float32Array(16);
         for (let i = 0; i < 16; i++) {
@@ -213,14 +244,14 @@ export class StencilRenderer {
             modelArray[i] = modelMatrix[i];
         }
         //Mvp Buffer
-        this.device.queue.writeBuffer(this.modelViewProjectionBuffer, 0, mvpArray.buffer);
+        this.device.queue.writeBuffer(buffers.mvp, 0, mvpArray.buffer, mvpArray.byteOffset, mvpArray.byteLength);
         //Model Matrix
-        this.device.queue.writeBuffer(this.modelMatrixBuffer, 0, modelArray.buffer);
+        this.device.queue.writeBuffer(buffers.modelMatrix, 0, modelArray.buffer, modelArray.byteOffset, modelArray.byteLength);
         //Stencil
         const stencilArray = new Uint32Array([stencilValue]);
-        this.device.queue.writeBuffer(this.stencilValueBuffer, 0, stencilArray.buffer);
+        this.device.queue.writeBuffer(buffers.stencilValue, 0, stencilArray.buffer, stencilArray.byteOffset, stencilArray.byteLength);
         //Color
-        this.device.queue.writeBuffer(this.faceColorBuffer, 0, faceColor.buffer);
+        this.device.queue.writeBuffer(buffers.faceColor, 0, faceColor.buffer, faceColor.byteOffset, faceColor.byteLength);
         return {
             mvp: this.modelViewProjectionBuffer,
             modelMatrix: this.modelMatrixBuffer,
@@ -238,20 +269,7 @@ export class StencilRenderer {
     }
     //
     getStencilValueGeometry(block) {
-        const pos = vec3.fromValues(block.modelMatrix[12], block.modelMatrix[13], block.modelMatrix[14]);
-        if (pos[2] > 0.4)
-            return 1; //Front
-        if (pos[2] < -0.4)
-            return 2; //Back
-        if (pos[0] > 0.4)
-            return 3; //Right
-        if (pos[0] < -0.4)
-            return 4; //Left
-        if (pos[1] > 0.4)
-            return 5; //Top
-        if (pos[1] < -0.4)
-            return 6; //Bottom
-        return 1;
+        return block.faceIndex !== undefined ? block.faceIndex + 1 : 1;
     }
     getFaceColor(faceIndex) {
         return this.faceColors[faceIndex % this.faceColors.length];

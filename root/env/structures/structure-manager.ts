@@ -22,7 +22,7 @@ export class StructureManager {
             rotation?: {
                 axis: 'x' | 'y' | 'z';
                 angle: number;
-            }
+            },
         ) => Promise<{
             block: EnvBufferData | null,
             collider: BoxCollider | null
