@@ -6,18 +6,20 @@ export class EnvRenderer {
     passEncoder;
     loader;
     shaderLoader;
+    viewProjectionMatrix;
     //Items
     chambers;
     floor;
     //Objects
     objectManager;
-    constructor(canvas, device, passEncoder, loader, shaderLoader, objectManager) {
+    constructor(canvas, device, passEncoder, loader, shaderLoader, viewProjectionMatrix, objectManager) {
         this.canvas = canvas;
         this.device = device;
         this.passEncoder = passEncoder;
         this.loader = loader;
         this.shaderLoader = shaderLoader;
         this.objectManager = objectManager;
+        this.viewProjectionMatrix = viewProjectionMatrix;
     }
     async update(deltaTime) {
         if (!this.objectManager)
@@ -35,7 +37,10 @@ export class EnvRenderer {
         this.floor = new Floor(this.loader);
         await this.floor.init();
         //Chambers
-        this.chambers = new Chambers(this.canvas, this.device, this.passEncoder, this.loader, this.shaderLoader);
+        this.chambers = new Chambers(this.canvas, this.device, this.loader, this.shaderLoader);
         await this.chambers.init();
+    }
+    async lateRenderer() {
+        await this.chambers.initStencil(this.viewProjectionMatrix, this.passEncoder);
     }
 }

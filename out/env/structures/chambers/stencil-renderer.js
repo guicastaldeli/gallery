@@ -1,27 +1,39 @@
+import { vec3 } from "../../../../node_modules/gl-matrix/esm/index.js";
 export class StencilRenderer {
     device;
     canvas;
-    passEncoder;
     shaderLoader;
     stencilMaskPipeline;
     stencilGeometryPipeline;
     stencilTexture;
     stencilMaskValues;
+    faceColors;
     modelViewProjectionBuffer;
     modelMatrixBuffer;
     stencilValueBuffer;
-    constructor(device, canvas, passEncoder, shaderLoader) {
+    faceColorBuffer;
+    constructor(device, canvas, shaderLoader) {
         this.device = device;
         this.canvas = canvas;
-        this.passEncoder = passEncoder;
         this.shaderLoader = shaderLoader;
+        this.setColors();
         this.initBuffers();
+    }
+    setColors() {
+        this.faceColors = [
+            new Float32Array([1.0, 0.0, 0.0, 1.0]), //Red
+            new Float32Array([0.0, 1.0, 0.0, 1.0]), //Green
+            new Float32Array([0.0, 0.0, 1.0, 1.0]), //Blue
+            new Float32Array([1.0, 1.0, 0.0, 1.0]), //Yellow
+            new Float32Array([1.0, 0.0, 1.0, 1.0]), //Magenta
+            new Float32Array([0.0, 1.0, 1.0, 1.0]) //Cyan
+        ];
     }
     async loadShaders() {
         try {
             const [stencilMask, stencilGeometry] = await Promise.all([
                 this.shaderLoader.loader('./.shaders/stencil-mask.wgsl'),
-                this.shaderLoader.loader('../../../.shaders/stencil-geometry.wgsl')
+                this.shaderLoader.loader('./.shaders/stencil-geometry.wgsl')
             ]);
             return { stencilMask, stencilGeometry };
         }
@@ -131,6 +143,11 @@ export class StencilRenderer {
                     binding: 2,
                     visibility: GPUShaderStage.VERTEX,
                     buffer: { type: 'uniform' }
+                },
+                {
+                    binding: 3,
+                    visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                    buffer: { type: 'uniform' }
                 }
             ]
         });
@@ -152,8 +169,13 @@ export class StencilRenderer {
             size: 4,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         });
+        //Face Color
+        this.faceColorBuffer = this.device.createBuffer({
+            size: 16,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
     }
-    updateBuffers(modelViewProjectionMatrix, modelMatrix, stencilValue) {
+    updateBuffers(modelViewProjectionMatrix, modelMatrix, stencilValue, faceColor) {
         const mvpArray = new Float32Array(16);
         const modelArray = new Float32Array(16);
         for (let i = 0; i < 16; i++) {
@@ -164,37 +186,45 @@ export class StencilRenderer {
         this.device.queue.writeBuffer(this.modelViewProjectionBuffer, 0, mvpArray.buffer);
         //Model Matrix
         this.device.queue.writeBuffer(this.modelMatrixBuffer, 0, modelArray.buffer);
+        //Stencil
+        const stencilArray = new Uint32Array([stencilValue]);
+        this.device.queue.writeBuffer(this.stencilValueBuffer, 0, stencilArray.buffer);
+        //Color
+        this.device.queue.writeBuffer(this.faceColorBuffer, 0, faceColor.buffer);
         return {
             mvp: this.modelViewProjectionBuffer,
             modelMatrix: this.modelMatrixBuffer,
-            stencilValue: this.stencilValueBuffer
+            stencilValue: this.stencilValueBuffer,
+            faceColor: this.faceColorBuffer
         };
     }
     getBuffers() {
         return {
             mvp: this.modelViewProjectionBuffer,
             modelMatrix: this.modelMatrixBuffer,
-            stencilValue: this.stencilValueBuffer
+            stencilValue: this.stencilValueBuffer,
+            faceColor: this.faceColorBuffer
         };
     }
     //
     getStencilValueGeometry(block) {
-        if (block.position) {
-            const pos = block.position;
-            if (pos.z > 0.4)
-                return 1; //Front
-            if (pos.z < -0.4)
-                return 2; //Back
-            if (pos.x > 0.4)
-                return 3; //Right
-            if (pos.x < -0.4)
-                return 4; //Left
-            if (pos.y > 0.4)
-                return 5; //Top
-            if (pos.y < -0.4)
-                return 6; //Bottom
-        }
+        const pos = vec3.fromValues(block.modelMatrix[12], block.modelMatrix[13], block.modelMatrix[14]);
+        if (pos[2] > 0.4)
+            return 1; //Front
+        if (pos[2] < -0.4)
+            return 2; //Back
+        if (pos[0] > 0.4)
+            return 3; //Right
+        if (pos[0] < -0.4)
+            return 4; //Left
+        if (pos[1] > 0.4)
+            return 5; //Top
+        if (pos[1] < -0.4)
+            return 6; //Bottom
         return 1;
+    }
+    getFaceColor(faceIndex) {
+        return this.faceColors[faceIndex % this.faceColors.length];
     }
     async init() {
         await this.initResources();

@@ -1,4 +1,4 @@
-import { mat3, mat4, vec3, quat } from "../../../../node_modules/gl-matrix/esm/index.js";
+import { mat3, mat4, vec3 } from "../../../../node_modules/gl-matrix/esm/index.js";
 import { EnvBufferData } from "../../env-buffers.js";
 import { Patterns } from "../../patterns.interface.js";
 import { StructureManager } from "../structure-manager.js";
@@ -10,6 +10,7 @@ import { BoxCollider, Collider, CollisionInfo, ICollidable } from "../../../coll
 interface Data extends EnvBufferData {
     id?: string,
     modelMatrix: mat4;
+    position: vec3;
     vertex: GPUBuffer;
     color: GPUBuffer;
     index: GPUBuffer;
@@ -32,7 +33,6 @@ interface Resource {
 export class Chambers implements ICollidable {
     private canvas: HTMLCanvasElement;
     private device: GPUDevice;
-    private passEncoder: GPURenderPassEncoder;
     private loader: Loader;
     private shaderLoader: ShaderLoader;
     private structureManager: StructureManager;
@@ -62,18 +62,16 @@ export class Chambers implements ICollidable {
     constructor(
         canvas: HTMLCanvasElement,
         device: GPUDevice,
-        passEncoder: GPURenderPassEncoder,
         loader: Loader,
         shaderLoader: ShaderLoader
     ) {
         this.canvas = canvas;
         this.device = device;
-        this.passEncoder = passEncoder
         this.loader = loader;
         this.shaderLoader = shaderLoader;
         
         this.structureManager = new StructureManager();
-        this.stencilRenderer = new StencilRenderer(device, canvas, passEncoder, shaderLoader);
+        this.stencilRenderer = new StencilRenderer(device, canvas, shaderLoader);
     }
 
     private async loadAssets(): Promise<void> {
@@ -123,6 +121,7 @@ export class Chambers implements ICollidable {
         const block: Data = {
             id: `block-${this.blockIdCounter++}`,
             modelMatrix: mat4.create(),
+            position: vec3.clone(position),
             normalMatrix: mat3.create(),
             vertex: source.vertex,
             color: source.color,
@@ -291,9 +290,9 @@ export class Chambers implements ICollidable {
     }
 
     //Render
-    private async renderStencil(viewProjectionMatrix: mat4): Promise<void> {
+    private async renderStencil(viewProjectionMatrix: mat4, passEncoder: GPURenderPassEncoder): Promise<void> {
         try {
-            this.passEncoder.setPipeline(this.stencilRenderer.stencilMaskPipeline);
+            passEncoder.setPipeline(this.stencilRenderer.stencilMaskPipeline);
     
             for(let i = 0; i < 6; i++) {
                 const faceModelMatrix = this.getFaceModelMatrix(i);
@@ -301,10 +300,13 @@ export class Chambers implements ICollidable {
                 const modelViewProjection = mat4.create();
                 mat4.multiply(modelViewProjection, viewProjectionMatrix, faceModelMatrix);
 
+                const faceColor = this.stencilRenderer.getFaceColor(i);
+
                 const buffers = this.stencilRenderer.updateBuffers(
                     modelViewProjection,
                     faceModelMatrix,
-                    this.stencilRenderer.stencilMaskValues[i]
+                    this.stencilRenderer.stencilMaskValues[i],
+                    faceColor
                 );
     
                 const bindGroup = this.device.createBindGroup({
@@ -321,25 +323,31 @@ export class Chambers implements ICollidable {
                         {
                             binding: 2,
                             resource: { buffer: buffers.stencilValue }
+                        },
+                        {
+                            binding: 3,
+                            resource: { buffer: buffers.faceColor }
                         }
                     ]
                 });
     
-                this.passEncoder.setBindGroup(0, bindGroup);
-                //this.passEncoder.drawIndexed(faceIndexCount, 1, 0, 0, 0);
+                passEncoder.setBindGroup(0, bindGroup);
+                //passEncoder.drawIndexed(faceIndexCount, 1, 0, 0, 0);
             }
     
-            this.passEncoder.setPipeline(this.stencilRenderer.stencilGeometryPipeline);
+            passEncoder.setPipeline(this.stencilRenderer.stencilGeometryPipeline);
     
             for(const block of this.blocks) {
                 const modelViewProjection = mat4.create();
                 mat4.multiply(modelViewProjection, viewProjectionMatrix, block.modelMatrix);
                 const stencilValue = this.stencilRenderer.getStencilValueGeometry(block);
+                const faceColor = this.stencilRenderer.getFaceColor(stencilValue - 1);
 
                 const buffers = this.stencilRenderer.updateBuffers(
                     modelViewProjection,
                     block.modelMatrix,
-                    stencilValue
+                    stencilValue,
+                    faceColor
                 );
     
                 const bindGroup = this.device.createBindGroup({
@@ -356,14 +364,18 @@ export class Chambers implements ICollidable {
                         {
                             binding: 2,
                             resource: { buffer: buffers.stencilValue }
-                        }
+                        },
+                        {
+                            binding: 3,
+                            resource: { buffer: buffers.faceColor }
+                        },
                     ]
                 });
     
-                this.passEncoder.setBindGroup(0, bindGroup);
-                this.passEncoder.setVertexBuffer(0, block.vertex);
-                this.passEncoder.setIndexBuffer(block.index, 'uint16');
-                this.passEncoder.drawIndexed(block.indexCount);
+                passEncoder.setBindGroup(0, bindGroup);
+                passEncoder.setVertexBuffer(0, block.vertex);
+                passEncoder.setIndexBuffer(block.index, 'uint16');
+                passEncoder.drawIndexed(block.indexCount);
             }
         } catch(err) {
             console.log(err);
@@ -405,14 +417,29 @@ export class Chambers implements ICollidable {
     }
 
     public async init(): Promise<void> {
-        await this.loadAssets();
-        this.setUpdatedPosition(
-            vec3.fromValues(
-                this.chamberPos.x, 
-                this.chamberPos.y, 
-                this.chamberPos.z
-            )
-        );
-        await this.generate();
+        try {
+            await this.loadAssets();
+            this.setUpdatedPosition(
+                vec3.fromValues(
+                    this.chamberPos.x, 
+                    this.chamberPos.y, 
+                    this.chamberPos.z
+                )
+            );
+            await this.generate();
+        } catch(err) {
+            console.log(err);
+            throw err;
+        }
+    }
+
+    public async initStencil(viewProjectionMatrix: mat4, passEncoder: GPURenderPassEncoder): Promise<void> {
+        try {
+            await this.stencilRenderer.init();
+            await this.renderStencil(viewProjectionMatrix, passEncoder);
+        } catch(err) {
+            console.log(err);
+            throw err;
+        }
     }
 }

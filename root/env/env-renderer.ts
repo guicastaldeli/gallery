@@ -1,3 +1,4 @@
+import mat4 from "../../node_modules/gl-matrix/esm/index.js";
 import { EnvBufferData } from "./env-buffers.js";
 import { Loader } from "../loader.js";
 import { ShaderLoader } from "../shader-loader.js";
@@ -8,9 +9,10 @@ import { Floor } from "./structures/floor/floor.js";
 export class EnvRenderer {
     private device: GPUDevice;
     private canvas: HTMLCanvasElement;
-    public passEncoder: GPURenderPassEncoder;
+    public passEncoder!: GPURenderPassEncoder;
     private loader: Loader;
     private shaderLoader: ShaderLoader;
+    public viewProjectionMatrix: mat4;
 
     //Items
     public chambers!: Chambers;
@@ -25,7 +27,8 @@ export class EnvRenderer {
         passEncoder: GPURenderPassEncoder,
         loader: Loader,
         shaderLoader: ShaderLoader,
-        objectManager?: ObjectManager
+        viewProjectionMatrix: mat4,
+        objectManager?: ObjectManager,
     ) {
         this.canvas = canvas;
         this.device = device;
@@ -33,6 +36,7 @@ export class EnvRenderer {
         this.loader = loader;
         this.shaderLoader = shaderLoader;
         this.objectManager = objectManager;
+        this.viewProjectionMatrix = viewProjectionMatrix;
     }
 
     public async update(deltaTime: number): Promise<void> {
@@ -57,10 +61,13 @@ export class EnvRenderer {
         this.chambers = new Chambers(
             this.canvas,
             this.device,
-            this.passEncoder,
             this.loader, 
             this.shaderLoader
         );
         await this.chambers.init();
+    }
+
+    public async lateRenderer(): Promise<void> {
+        await this.chambers.initStencil(this.viewProjectionMatrix, this.passEncoder);
     }
 }

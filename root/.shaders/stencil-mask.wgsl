@@ -1,3 +1,12 @@
+struct Uniforms {
+    modelViewProjection: mat4x4f,
+    modelMatrix: mat4x4f,
+    stencilValue: u32,
+    faceColor: vec4f
+}
+
+@group(0) @binding(0) var<uniform> uniforms: Uniforms;
+
 struct VertexInput {
     @location(0) position: vec3f,
     @builtin(instance_index) instance: u32
@@ -5,21 +14,21 @@ struct VertexInput {
 
 struct VertexOutput {
     @builtin(position) position: vec4f,
-    @location(0) faceId: u32
+    @location(0) @interpolate(flat) faceId: u32,
+    @location(1) color: vec4f
 }
 
-@group(0) @binding(0) var<uniform> modelViewProjection: mat4x4f;
-@group(0) @binding(1) var<uniform> stencilMask: array<u32, 6>;
 
 @vertex
 fn vs_main(input: VertexInput) -> VertexOutput {
     var output: VertexOutput;
-    output.position = modelViewProjection * vec4f(input.position, 1.0);
+    output.position = uniforms.modelViewProjection * vec4f(input.position, 1.0);
     output.faceId = input.instance;
+    output.color = uniforms.faceColor;
     return output;
 }
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) u32 {
-    return stencilMask[input.faceId];
+    return input.faceId + 1;
 }

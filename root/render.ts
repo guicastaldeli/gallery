@@ -36,6 +36,8 @@ interface BindGroupResources {
 let pipeline: GPURenderPipeline;
 let buffers: BufferData;
 let cachedBindGroups: BindGroupResources | null = null;
+let passEncoder: GPURenderPassEncoder;
+let viewProjectionMatrix: mat4;
 
 let depthTexture: GPUTexture | null = null;
 let depthTextureWidth = 0;
@@ -590,15 +592,20 @@ async function errorHandler() {
 }
 
 //Env
-async function renderEnv(deltaTime: number, passEncoder?: GPURenderPassEncoder): Promise<void> {
+async function renderEnv(
+    deltaTime: number, 
+    passEncoder: GPURenderPassEncoder, 
+    viewProjectionMatrix: mat4
+): Promise<void> {
     if(!envRenderer) {
         envRenderer = new EnvRenderer(
             canvas,
             device,
-            passEncoder!, 
+            passEncoder,
             loader, 
             shaderLoader, 
-            objectManager
+            viewProjectionMatrix,
+            objectManager,
         );
         await envRenderer.render();
         await envRenderer.update(deltaTime);
@@ -613,6 +620,7 @@ async function lateRenderers(passEncoder: GPURenderPassEncoder, viewProjectionMa
         await skybox.init();
     }
     await skybox.render(passEncoder, viewProjectionMatrix, deltaTime);
+    await envRenderer.lateRenderer();
 }
 
 export async function render(canvas: HTMLCanvasElement): Promise<void> {
@@ -663,7 +671,7 @@ export async function render(canvas: HTMLCanvasElement): Promise<void> {
     
             objectManager = new ObjectManager(deps);
             await objectManager.ready();
-            await renderEnv(deltaTime);
+            await renderEnv(deltaTime, passEncoder, viewProjectionMatrix);
         }
 
         //Colliders
@@ -721,7 +729,7 @@ export async function render(canvas: HTMLCanvasElement): Promise<void> {
             shadowDepthTextureHeight = canvas.height;
         }
         
-        const passEncoder = commandEncoder.beginRenderPass({
+        passEncoder = commandEncoder.beginRenderPass({
             colorAttachments: [{
                 view: textureView,
                 clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
@@ -733,6 +741,11 @@ export async function render(canvas: HTMLCanvasElement): Promise<void> {
                 depthClearValue: 1.0,
                 depthLoadOp: 'clear',
                 depthStoreOp: 'store',
+                /*
+                stencilLoadOp: 'clear',
+                stencilStoreOp: 'store',
+                stencilClearValue: 1.0
+                */
             }
         });
         passEncoder.setViewport(0, 0, canvas.width, canvas.height, 0, 1);
@@ -741,11 +754,12 @@ export async function render(canvas: HTMLCanvasElement): Promise<void> {
         envRenderer.passEncoder = passEncoder;
     
         const modelMatrix = mat4.create();
-        const viewProjectionMatrix = mat4.create();
+        viewProjectionMatrix = mat4.create();
         const projectionMatrix = camera.getProjectionMatrix(canvas.width / canvas.height);
         const viewMatrix = camera.getViewMatrix();
         mat4.multiply(viewProjectionMatrix, projectionMatrix, viewMatrix);
         objectManager.deps.viewProjectionMatrix = viewProjectionMatrix;
+        envRenderer.viewProjectionMatrix = viewProjectionMatrix;
 
         //Buffers
         await setBuffers(passEncoder, viewProjectionMatrix, modelMatrix, currentTime);

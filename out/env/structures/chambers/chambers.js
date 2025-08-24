@@ -5,7 +5,6 @@ import { BoxCollider } from "../../../collision/collider.js";
 export class Chambers {
     canvas;
     device;
-    passEncoder;
     loader;
     shaderLoader;
     structureManager;
@@ -27,14 +26,13 @@ export class Chambers {
         h: 40.0,
         d: 40.0
     };
-    constructor(canvas, device, passEncoder, loader, shaderLoader) {
+    constructor(canvas, device, loader, shaderLoader) {
         this.canvas = canvas;
         this.device = device;
-        this.passEncoder = passEncoder;
         this.loader = loader;
         this.shaderLoader = shaderLoader;
         this.structureManager = new StructureManager();
-        this.stencilRenderer = new StencilRenderer(device, canvas, passEncoder, shaderLoader);
+        this.stencilRenderer = new StencilRenderer(device, canvas, shaderLoader);
     }
     async loadAssets() {
         try {
@@ -72,6 +70,7 @@ export class Chambers {
         const block = {
             id: `block-${this.blockIdCounter++}`,
             modelMatrix: mat4.create(),
+            position: vec3.clone(position),
             normalMatrix: mat3.create(),
             vertex: source.vertex,
             color: source.color,
@@ -203,14 +202,15 @@ export class Chambers {
         mat4.translate(this.chamberTransform, this.chamberTransform, position);
     }
     //Render
-    async renderStencil(viewProjectionMatrix) {
+    async renderStencil(viewProjectionMatrix, passEncoder) {
         try {
-            this.passEncoder.setPipeline(this.stencilRenderer.stencilMaskPipeline);
+            passEncoder.setPipeline(this.stencilRenderer.stencilMaskPipeline);
             for (let i = 0; i < 6; i++) {
                 const faceModelMatrix = this.getFaceModelMatrix(i);
                 const modelViewProjection = mat4.create();
                 mat4.multiply(modelViewProjection, viewProjectionMatrix, faceModelMatrix);
-                const buffers = this.stencilRenderer.updateBuffers(modelViewProjection, faceModelMatrix, this.stencilRenderer.stencilMaskValues[i]);
+                const faceColor = this.stencilRenderer.getFaceColor(i);
+                const buffers = this.stencilRenderer.updateBuffers(modelViewProjection, faceModelMatrix, this.stencilRenderer.stencilMaskValues[i], faceColor);
                 const bindGroup = this.device.createBindGroup({
                     layout: this.stencilRenderer.stencilMaskPipeline.getBindGroupLayout(0),
                     entries: [
@@ -225,18 +225,23 @@ export class Chambers {
                         {
                             binding: 2,
                             resource: { buffer: buffers.stencilValue }
+                        },
+                        {
+                            binding: 3,
+                            resource: { buffer: buffers.faceColor }
                         }
                     ]
                 });
-                this.passEncoder.setBindGroup(0, bindGroup);
-                //this.passEncoder.drawIndexed(faceIndexCount, 1, 0, 0, 0);
+                passEncoder.setBindGroup(0, bindGroup);
+                //passEncoder.drawIndexed(faceIndexCount, 1, 0, 0, 0);
             }
-            this.passEncoder.setPipeline(this.stencilRenderer.stencilGeometryPipeline);
+            passEncoder.setPipeline(this.stencilRenderer.stencilGeometryPipeline);
             for (const block of this.blocks) {
                 const modelViewProjection = mat4.create();
                 mat4.multiply(modelViewProjection, viewProjectionMatrix, block.modelMatrix);
                 const stencilValue = this.stencilRenderer.getStencilValueGeometry(block);
-                const buffers = this.stencilRenderer.updateBuffers(modelViewProjection, block.modelMatrix, stencilValue);
+                const faceColor = this.stencilRenderer.getFaceColor(stencilValue - 1);
+                const buffers = this.stencilRenderer.updateBuffers(modelViewProjection, block.modelMatrix, stencilValue, faceColor);
                 const bindGroup = this.device.createBindGroup({
                     layout: this.stencilRenderer.stencilMaskPipeline.getBindGroupLayout(0),
                     entries: [
@@ -251,13 +256,17 @@ export class Chambers {
                         {
                             binding: 2,
                             resource: { buffer: buffers.stencilValue }
-                        }
+                        },
+                        {
+                            binding: 3,
+                            resource: { buffer: buffers.faceColor }
+                        },
                     ]
                 });
-                this.passEncoder.setBindGroup(0, bindGroup);
-                this.passEncoder.setVertexBuffer(0, block.vertex);
-                this.passEncoder.setIndexBuffer(block.index, 'uint16');
-                this.passEncoder.drawIndexed(block.indexCount);
+                passEncoder.setBindGroup(0, bindGroup);
+                passEncoder.setVertexBuffer(0, block.vertex);
+                passEncoder.setIndexBuffer(block.index, 'uint16');
+                passEncoder.drawIndexed(block.indexCount);
             }
         }
         catch (err) {
@@ -297,8 +306,24 @@ export class Chambers {
         }
     }
     async init() {
-        await this.loadAssets();
-        this.setUpdatedPosition(vec3.fromValues(this.chamberPos.x, this.chamberPos.y, this.chamberPos.z));
-        await this.generate();
+        try {
+            await this.loadAssets();
+            this.setUpdatedPosition(vec3.fromValues(this.chamberPos.x, this.chamberPos.y, this.chamberPos.z));
+            await this.generate();
+        }
+        catch (err) {
+            console.log(err);
+            throw err;
+        }
+    }
+    async initStencil(viewProjectionMatrix, passEncoder) {
+        try {
+            await this.stencilRenderer.init();
+            await this.renderStencil(viewProjectionMatrix, passEncoder);
+        }
+        catch (err) {
+            console.log(err);
+            throw err;
+        }
     }
 }

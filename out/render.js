@@ -18,6 +18,8 @@ import { DirectionalLight } from "./lightning/directional-light.js";
 let pipeline;
 let buffers;
 let cachedBindGroups = null;
+let passEncoder;
+let viewProjectionMatrix;
 let depthTexture = null;
 let depthTextureWidth = 0;
 let depthTextureHeight = 0;
@@ -505,9 +507,9 @@ async function errorHandler() {
         console.error('Pipeline error:', pipelineError);
 }
 //Env
-async function renderEnv(deltaTime, passEncoder) {
+async function renderEnv(deltaTime, passEncoder, viewProjectionMatrix) {
     if (!envRenderer) {
-        envRenderer = new EnvRenderer(canvas, device, passEncoder, loader, shaderLoader, objectManager);
+        envRenderer = new EnvRenderer(canvas, device, passEncoder, loader, shaderLoader, viewProjectionMatrix, objectManager);
         await envRenderer.render();
         await envRenderer.update(deltaTime);
         objectManager.deps.floor = envRenderer.floor;
@@ -520,6 +522,7 @@ async function lateRenderers(passEncoder, viewProjectionMatrix, deltaTime) {
         await skybox.init();
     }
     await skybox.render(passEncoder, viewProjectionMatrix, deltaTime);
+    await envRenderer.lateRenderer();
 }
 export async function render(canvas) {
     try {
@@ -570,7 +573,7 @@ export async function render(canvas) {
             };
             objectManager = new ObjectManager(deps);
             await objectManager.ready();
-            await renderEnv(deltaTime);
+            await renderEnv(deltaTime, passEncoder, viewProjectionMatrix);
         }
         //Colliders
         if (!getColliders) {
@@ -614,7 +617,7 @@ export async function render(canvas) {
             shadowDepthTextureWidth = canvas.width;
             shadowDepthTextureHeight = canvas.height;
         }
-        const passEncoder = commandEncoder.beginRenderPass({
+        passEncoder = commandEncoder.beginRenderPass({
             colorAttachments: [{
                     view: textureView,
                     clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
@@ -626,6 +629,11 @@ export async function render(canvas) {
                 depthClearValue: 1.0,
                 depthLoadOp: 'clear',
                 depthStoreOp: 'store',
+                /*
+                stencilLoadOp: 'clear',
+                stencilStoreOp: 'store',
+                stencilClearValue: 1.0
+                */
             }
         });
         passEncoder.setViewport(0, 0, canvas.width, canvas.height, 0, 1);
@@ -633,11 +641,12 @@ export async function render(canvas) {
         objectManager.deps.passEncoder = passEncoder;
         envRenderer.passEncoder = passEncoder;
         const modelMatrix = mat4.create();
-        const viewProjectionMatrix = mat4.create();
+        viewProjectionMatrix = mat4.create();
         const projectionMatrix = camera.getProjectionMatrix(canvas.width / canvas.height);
         const viewMatrix = camera.getViewMatrix();
         mat4.multiply(viewProjectionMatrix, projectionMatrix, viewMatrix);
         objectManager.deps.viewProjectionMatrix = viewProjectionMatrix;
+        envRenderer.viewProjectionMatrix = viewProjectionMatrix;
         //Buffers
         await setBuffers(passEncoder, viewProjectionMatrix, modelMatrix, currentTime);
         //**__ Late Renderers __**
