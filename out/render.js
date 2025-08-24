@@ -113,7 +113,7 @@ async function setBindGroups() {
                     visibility: GPUShaderStage.FRAGMENT,
                     buffer: {
                         type: 'uniform',
-                        minBindingSize: 64
+                        minBindingSize: 80
                     }
                 }
             ]

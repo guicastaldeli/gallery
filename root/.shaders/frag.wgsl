@@ -1,6 +1,6 @@
 @group(1) @binding(0) var textureSampler: sampler;
 @group(1) @binding(1) var textureMap: texture_2d<f32>;
-@group(3) @binding(0) var<uniform> chamberColors: array<vec4f, 4>;
+@group(3) @binding(0) var<uniform> chamberColors: array<vec4f, 5>;
 
 struct FragmentInput {
     @location(0) texCoord: vec2f,
@@ -35,7 +35,6 @@ fn main(input: FragmentInput) -> @location(0) vec4f {
     var baseColor = mix(texColor.rgb, input.color, 0.1);
 
     let worldPos = input.worldPos;
-    let cameraPos = input.cameraPos;
     let dFdxPos = dpdx(worldPos);
     let dFdyPos = dpdy(worldPos);
     let calculatedNormal = normalize(cross(dFdxPos, dFdyPos));
@@ -43,10 +42,10 @@ fn main(input: FragmentInput) -> @location(0) vec4f {
     var finalColor = applyAmbientLight(baseColor);
     finalColor += applyDirectionalLight(baseColor, calculatedNormal);
 
-    if(input.isChamber > 0.5) {
-        let chamberIndex = u32(input.isChamber) % 4u;
+    if(input.isChamber > 0.1) {
+        let chamberIndex = clamp(i32(round(input.isChamber)), 0, 5);
         let chamberColor = chamberColors[chamberIndex].rgb;
-        finalColor = mix(finalColor, chamberColor, 0.3);
+        finalColor = mix(finalColor, chamberColor, 0.8);
     }
 
     finalColor = max(finalColor, vec3f(0.0));

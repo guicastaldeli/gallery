@@ -61,7 +61,7 @@ export class Chambers {
     async create(position, isBlock, rotation) {
         if (!isBlock)
             return { block: null, collider: null };
-        const isChamber = this.isFill || 0;
+        const isChamber = this.isFill || 0.0;
         const size = this.structureManager.getSize();
         const source = this.getResource(this.id);
         if (!source)
@@ -239,12 +239,12 @@ export class Chambers {
         }
     }
     async initColors() {
-        const colors = [
-            0.8, 0.2, 0.2, 1.0,
-            0.2, 0.8, 0.2, 1.0,
-            0.2, 0.2, 0.8, 1.0,
-            0.8, 0.8, 0.2, 1.0
-        ];
+        const colors = new Float32Array(20);
+        colors.set([0.2, 0.8, 0.2, 1.0], 0);
+        colors.set([0.2, 0.8, 0.2, 1.0], 4);
+        colors.set([0.2, 0.2, 0.8, 1.0], 8);
+        colors.set([0.8, 0.8, 0.2, 1.0], 12);
+        colors.set([0.8, 0.2, 0.2, 1.0], 16);
         this.chamberColors = new Float32Array(colors);
         this.chamberColorsBuffer = this.device.createBuffer({
             size: this.chamberColors.byteLength,
