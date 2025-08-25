@@ -29,7 +29,7 @@ export class Chambers {
         z: 8.0
     };
     collisionScale = { w: 40.0, h: 40.0, d: 40.0 };
-    fillCollisionScale = { w: 5.5, h: 10.0, d: 1.0 };
+    fillCollisionScale = { w: 8.0, h: 5.0, d: 0.05 };
     sideToIndex = {
         'front': 1,
         'right': 2,
@@ -241,7 +241,7 @@ export class Chambers {
                 this.blocks.push(...blocks.filter(b => b !== null));
                 this._Collider.push(...colliders.filter(c => c !== null));
                 if (config.isChamber > 0) {
-                    const fillColliders = colliders.filter(c => c !== null);
+                    const fillColliders = colliders;
                     const sideName = this.getSideName(config.isChamber);
                     fillColliders.forEach(c => {
                         this._fillCollider.push({ collider: c, side: sideName });

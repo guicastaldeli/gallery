@@ -20,7 +20,7 @@ export class Raycaster {
     }
 
     public getHitSide(faceNormal: vec3): string {
-        const epsilon = 0.0001;
+        const epsilon = 0.01;
         if(Math.abs(faceNormal[2] - 1) < epsilon) return 'front';
         //if(Math.abs(faceNormal[0] + 1) < epsilon) return 'left';
         //if(Math.abs(faceNormal[0] - 1) < epsilon) return 'right';

@@ -65,7 +65,7 @@ export class Chambers implements ICollidable {
         }
 
         private collisionScale = { w: 40.0, h: 40.0, d: 40.0 }
-        private fillCollisionScale = { w: 5.5, h: 10.0, d: 1.0 }
+        private fillCollisionScale = { w: 8.0, h: 5.0, d: 0.05 }
 
         private sideToIndex: Record<string, number> = {
             'front': 1,
@@ -337,7 +337,7 @@ export class Chambers implements ICollidable {
                 this._Collider.push(...colliders.filter(c => c !== null) as BoxCollider[]);
 
                 if(config.isChamber > 0) {
-                    const fillColliders = colliders.filter(c => c !== null) as BoxCollider[];
+                    const fillColliders = colliders as BoxCollider[];
                     const sideName = this.getSideName(config.isChamber);
                     fillColliders.forEach(c => {
                         this._fillCollider.push({ collider: c, side: sideName })
