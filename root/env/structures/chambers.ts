@@ -1,13 +1,12 @@
-import { mat3, mat4, vec3, vec4 } from "../../../node_modules/gl-matrix/esm/index.js";
+import { mat3, mat4, vec3 } from "../../../node_modules/gl-matrix/esm/index.js";
 import { EnvBufferData } from "../env-buffers.js";
 import { Patterns } from "../patterns.interface.js";
 import { StructureManager } from "./structure-manager.js";
 import { Loader } from "../../loader.js";
-import { ShaderLoader } from "../../shader-loader.js";
 import { BoxCollider, Collider, CollisionInfo, ICollidable } from "../../collision/collider.js";
-import { Camera } from "../../camera.js";
+import { StencilRenderer } from "./stencil-renderer.js";
 
-interface Data extends EnvBufferData {
+export interface Data extends EnvBufferData {
     id?: string,
     modelMatrix: mat4;
     position: vec3;
@@ -18,7 +17,6 @@ interface Data extends EnvBufferData {
     texture: GPUTexture;
     sampler: GPUSampler;
     resourceId?: string;
-    faceIndex?: number;
     isChamber?: number[];
 }
 
@@ -33,28 +31,19 @@ interface Resource {
 }
 
 export class Chambers implements ICollidable {
-    private device: GPUDevice;
     private loader: Loader;
-    private shaderLoader: ShaderLoader;
     private structureManager: StructureManager;
+    private stencilRenderer: StencilRenderer;
 
     private blocks: Data[] = [];
     private blockIdCounter: number = 0;
     private chamberTransform: mat4 = mat4.create();
     
+    private stencilValues: Map<string, number> = new Map();
     private src: Map<string, Resource> = new Map();
     private id: string = 'default-chamber';
     private _Collider: BoxCollider[] = [];
     private isFill!: number;
-
-    private chamberColorsBuffer!: GPUBuffer;
-    private chamberColors!: Float32Array;
-    private hightlightedSideBuffer!: GPUBuffer;
-    private hightlightedSide: number = -1;
-    private propColorBuffer!: GPUBuffer;
-    private propColor: vec4 = [0, 0, 0, 1];
-    private baseSize: vec3 = { w: 0.05, h: 0.05, d: 0.05 }
-    private fillSize: vec3 = { w: 0.25, h: 0.25, d: 0.05 }
 
     //Props
         private chamberPos = {
@@ -62,30 +51,17 @@ export class Chambers implements ICollidable {
             y: 0.0,
             z: 8.0
         }
-
+    
+        private baseSize: vec3 = { w: 0.05, h: 0.05, d: 0.05 }
+        private fillSize: vec3 = { w: 0.25, h: 0.25, d: 0.05 }
         private collisionScale = { w: 40.0, h: 40.0, d: 40.0 }
         private fillCollisionScale = { w: 0.0, h: 0.0, d: 0.0 }
-
-        private sideToIndex: Record<string, number> = {
-            'front': 1,
-            'right': 2,
-            'left': 3,
-            'back': 4
-        }
-
-        private sideColors: Record<string, vec4> = {
-            'front': [0.8, 0.2, 0.2, 1.0], //Red
-            'right': [0.8, 0.8, 0.2, 1.0], //Yellow
-            'left': [0.2, 0.2, 0.8, 1.0], //Blue
-            'back': [0.2, 0.8, 0.2, 1.0] //Green
-        }
     //
 
-    constructor(device: GPUDevice, loader: Loader, shaderLoader: ShaderLoader) {
-        this.device = device;
+    constructor(loader: Loader) {
         this.loader = loader;
-        this.shaderLoader = shaderLoader;
         this.structureManager = new StructureManager();
+        this.stencilRenderer = new StencilRenderer();
     }
 
     private async loadAssets(): Promise<void> {
@@ -148,6 +124,9 @@ export class Chambers implements ICollidable {
             resourceId: this.id,
             isChamber: [isChamber, isChamber, isChamber]
         }
+
+        const stencilValue = this.isFill || 0;
+        this.stencilValues.set(block.id!, stencilValue);
 
         this.updateMatrix(block, position, size, rotation);
         const worldCenter = vec3.create();
@@ -333,7 +312,7 @@ export class Chambers implements ICollidable {
                 )
     
                 this.blocks.push(...blocks.filter(b => b !== null) as Data[]);
-                this._Collider.push(...colliders.filter(c => c !== null) as BoxCollider[]);
+                this._Collider.push(...colliders as BoxCollider[]);
             }
         }
     }
@@ -382,94 +361,14 @@ export class Chambers implements ICollidable {
         }
     }
 
-    private async initColors(): Promise<void> {
-        const colors = new Float32Array(20);
-        colors.set([0.2, 0.8, 0.2, 1.0], 0); //Green
-        colors.set([0.8, 0.2, 0.2, 1.0], 4); //Red
-        colors.set([0.2, 0.2, 0.8, 1.0], 8); //Blue
-        colors.set([0.8, 0.8, 0.2, 1.0], 12); //Yellow
-        colors.set([0.2, 0.8, 0.2, 1.0], 16); //Green
-
-        this.chamberColors = new Float32Array(colors);
-        this.chamberColorsBuffer = this.device.createBuffer({
-            size: this.chamberColors.byteLength,
-            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-            mappedAtCreation: true
-        });
-
-        const mappedRange = new Float32Array(this.chamberColorsBuffer.getMappedRange());
-        mappedRange.set(this.chamberColors);
-        this.chamberColorsBuffer.unmap();
-    }
-
-    public getChamberColorBuffer(): GPUBuffer {
-        return this.chamberColorsBuffer;
-    }
-
     private setUpdatedPosition(position: vec3): void {
         mat4.identity(this.chamberTransform);
         mat4.translate(this.chamberTransform, this.chamberTransform, position);
     }
 
-    public async detectChamber(camera: Camera): Promise<string> {
-        const ray = camera.getRay();
-        let closestHit = {
-            distance: Infinity,
-            side: 'none',
-            collider: null as BoxCollider | null
-        }
-
-        for(const data of this.getAllColliders()) {
-            const collider = data.collider as BoxCollider;
-            const result = ray.intersectBox(collider);
-
-            if(result.hit && 
-                result.distance !== undefined &&
-                result.distance < closestHit.distance
-            ) {
-                const side = ray.getHitSide(result.faceNormal || vec3.create());
-                closestHit = {
-                    distance: result.distance,
-                    side: side,
-                    collider: collider
-                }
-            }
-        }
-
-        return closestHit.side;
-    }
-
-    private createHightlighBuffer(): void {
-        this.hightlightedSideBuffer = this.device.createBuffer({
-            size: 4,
-            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-            mappedAtCreation: true
-        });
-        new Int32Array(this.hightlightedSideBuffer.getMappedRange()).set([-1]);
-        this.hightlightedSideBuffer.unmap();
-
-        this.propColorBuffer = this.device.createBuffer({
-            size: 16,
-            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-            mappedAtCreation: true
-        });
-        new Float32Array(this.propColorBuffer.getMappedRange()).set([0, 0, 0, 1]);
-        this.propColorBuffer.unmap();
-    }
-
-    public getHightlightedSideBuffer(): GPUBuffer {
-        return this.hightlightedSideBuffer;
-    }
-
-    public getPropColorBuffer(): GPUBuffer {
-        return this.propColorBuffer;
-    }
-
     public async init(): Promise<void> {
         try {
-            await this.initColors();
             await this.loadAssets();
-            this.createHightlighBuffer();
             this.setUpdatedPosition(
                 vec3.fromValues(
                     this.chamberPos.x, 
@@ -484,40 +383,7 @@ export class Chambers implements ICollidable {
         }
     }
 
-    public async updateRaycaster(camera: Camera): Promise<void> {
-        const side = await this.detectChamber(camera);
-        let sideIndex = -1;
-        let colorToPropagate: vec4 = [0, 0, 0, 1];
-
-        if(side in this.sideToIndex) {
-            sideIndex = this.sideToIndex[side];
-            colorToPropagate = this.sideColors[side];
-            console.log(`Looking at ${side}`);
-        } else {
-            sideIndex = -1;
-            colorToPropagate = [0, 0, 0, 1];
-        }
-
-        if(this.hightlightedSide !== sideIndex) {
-            this.hightlightedSide = sideIndex;
-            this.device.queue.writeBuffer(
-                this.hightlightedSideBuffer,
-                0,
-                new Int32Array([this.hightlightedSide])
-            );
-        }
-
-        if(!this.vec4Equals(this.propColor, colorToPropagate)) {
-            this.propColor = colorToPropagate;
-            this.device.queue.writeBuffer(
-                this.propColorBuffer,
-                0,
-                new Float32Array(this.propColor)
-            );
-        }
-    }
-
-    private vec4Equals(a: vec4, b: vec4): boolean {
-        return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3]; 
+    public async renderStencil(passEncoder: GPURenderPassEncoder, viewProjectionMatrix: mat4): Promise<void> {
+        await this.stencilRenderer.renderMasks(passEncoder, viewProjectionMatrix, this.getData());
     }
 }

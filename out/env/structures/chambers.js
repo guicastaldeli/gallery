@@ -1,52 +1,34 @@
 import { mat3, mat4, vec3 } from "../../../node_modules/gl-matrix/esm/index.js";
 import { StructureManager } from "./structure-manager.js";
 import { BoxCollider } from "../../collision/collider.js";
+import { StencilRenderer } from "./stencil-renderer.js";
 export class Chambers {
-    device;
     loader;
-    shaderLoader;
     structureManager;
+    stencilRenderer;
     blocks = [];
     blockIdCounter = 0;
     chamberTransform = mat4.create();
+    stencilValues = new Map();
     src = new Map();
     id = 'default-chamber';
     _Collider = [];
     isFill;
-    chamberColorsBuffer;
-    chamberColors;
-    hightlightedSideBuffer;
-    hightlightedSide = -1;
-    propColorBuffer;
-    propColor = [0, 0, 0, 1];
-    baseSize = { w: 0.05, h: 0.05, d: 0.05 };
-    fillSize = { w: 0.25, h: 0.25, d: 0.05 };
     //Props
     chamberPos = {
         x: 5.0,
         y: 0.0,
         z: 8.0
     };
+    baseSize = { w: 0.05, h: 0.05, d: 0.05 };
+    fillSize = { w: 0.25, h: 0.25, d: 0.05 };
     collisionScale = { w: 40.0, h: 40.0, d: 40.0 };
     fillCollisionScale = { w: 0.0, h: 0.0, d: 0.0 };
-    sideToIndex = {
-        'front': 1,
-        'right': 2,
-        'left': 3,
-        'back': 4
-    };
-    sideColors = {
-        'front': [0.8, 0.2, 0.2, 1.0], //Red
-        'right': [0.8, 0.8, 0.2, 1.0], //Yellow
-        'left': [0.2, 0.2, 0.8, 1.0], //Blue
-        'back': [0.2, 0.8, 0.2, 1.0] //Green
-    };
     //
-    constructor(device, loader, shaderLoader) {
-        this.device = device;
+    constructor(loader) {
         this.loader = loader;
-        this.shaderLoader = shaderLoader;
         this.structureManager = new StructureManager();
+        this.stencilRenderer = new StencilRenderer();
     }
     async loadAssets() {
         try {
@@ -95,6 +77,8 @@ export class Chambers {
             resourceId: this.id,
             isChamber: [isChamber, isChamber, isChamber]
         };
+        const stencilValue = this.isFill || 0;
+        this.stencilValues.set(block.id, stencilValue);
         this.updateMatrix(block, position, size, rotation);
         const worldCenter = vec3.create();
         vec3.transformMat4(worldCenter, vec3.create(), block.modelMatrix);
@@ -238,7 +222,7 @@ export class Chambers {
                 const position = vec3.fromValues(config.pos.x, config.pos.y, config.pos.z);
                 const { blocks, colliders } = await this.structureManager.createFromPattern(config.pattern, position, (pos, isBlock, rotation) => this.create(pos, isBlock, config.size, config.collisionScale, rotation), config.rotation);
                 this.blocks.push(...blocks.filter(b => b !== null));
-                this._Collider.push(...colliders.filter(c => c !== null));
+                this._Collider.push(...colliders);
             }
         }
     }
@@ -278,80 +262,13 @@ export class Chambers {
             throw err;
         }
     }
-    async initColors() {
-        const colors = new Float32Array(20);
-        colors.set([0.2, 0.8, 0.2, 1.0], 0); //Green
-        colors.set([0.8, 0.2, 0.2, 1.0], 4); //Red
-        colors.set([0.2, 0.2, 0.8, 1.0], 8); //Blue
-        colors.set([0.8, 0.8, 0.2, 1.0], 12); //Yellow
-        colors.set([0.2, 0.8, 0.2, 1.0], 16); //Green
-        this.chamberColors = new Float32Array(colors);
-        this.chamberColorsBuffer = this.device.createBuffer({
-            size: this.chamberColors.byteLength,
-            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-            mappedAtCreation: true
-        });
-        const mappedRange = new Float32Array(this.chamberColorsBuffer.getMappedRange());
-        mappedRange.set(this.chamberColors);
-        this.chamberColorsBuffer.unmap();
-    }
-    getChamberColorBuffer() {
-        return this.chamberColorsBuffer;
-    }
     setUpdatedPosition(position) {
         mat4.identity(this.chamberTransform);
         mat4.translate(this.chamberTransform, this.chamberTransform, position);
     }
-    async detectChamber(camera) {
-        const ray = camera.getRay();
-        let closestHit = {
-            distance: Infinity,
-            side: 'none',
-            collider: null
-        };
-        for (const data of this.getAllColliders()) {
-            const collider = data.collider;
-            const result = ray.intersectBox(collider);
-            if (result.hit &&
-                result.distance !== undefined &&
-                result.distance < closestHit.distance) {
-                const side = ray.getHitSide(result.faceNormal || vec3.create());
-                closestHit = {
-                    distance: result.distance,
-                    side: side,
-                    collider: collider
-                };
-            }
-        }
-        return closestHit.side;
-    }
-    createHightlighBuffer() {
-        this.hightlightedSideBuffer = this.device.createBuffer({
-            size: 4,
-            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-            mappedAtCreation: true
-        });
-        new Int32Array(this.hightlightedSideBuffer.getMappedRange()).set([-1]);
-        this.hightlightedSideBuffer.unmap();
-        this.propColorBuffer = this.device.createBuffer({
-            size: 16,
-            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-            mappedAtCreation: true
-        });
-        new Float32Array(this.propColorBuffer.getMappedRange()).set([0, 0, 0, 1]);
-        this.propColorBuffer.unmap();
-    }
-    getHightlightedSideBuffer() {
-        return this.hightlightedSideBuffer;
-    }
-    getPropColorBuffer() {
-        return this.propColorBuffer;
-    }
     async init() {
         try {
-            await this.initColors();
             await this.loadAssets();
-            this.createHightlighBuffer();
             this.setUpdatedPosition(vec3.fromValues(this.chamberPos.x, this.chamberPos.y, this.chamberPos.z));
             await this.generate();
         }
@@ -360,29 +277,7 @@ export class Chambers {
             throw err;
         }
     }
-    async updateRaycaster(camera) {
-        const side = await this.detectChamber(camera);
-        let sideIndex = -1;
-        let colorToPropagate = [0, 0, 0, 1];
-        if (side in this.sideToIndex) {
-            sideIndex = this.sideToIndex[side];
-            colorToPropagate = this.sideColors[side];
-            console.log(`Looking at ${side}`);
-        }
-        else {
-            sideIndex = -1;
-            colorToPropagate = [0, 0, 0, 1];
-        }
-        if (this.hightlightedSide !== sideIndex) {
-            this.hightlightedSide = sideIndex;
-            this.device.queue.writeBuffer(this.hightlightedSideBuffer, 0, new Int32Array([this.hightlightedSide]));
-        }
-        if (!this.vec4Equals(this.propColor, colorToPropagate)) {
-            this.propColor = colorToPropagate;
-            this.device.queue.writeBuffer(this.propColorBuffer, 0, new Float32Array(this.propColor));
-        }
-    }
-    vec4Equals(a, b) {
-        return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
+    async renderStencil(passEncoder, viewProjectionMatrix) {
+        await this.stencilRenderer.renderMasks(passEncoder, viewProjectionMatrix, this.getData());
     }
 }

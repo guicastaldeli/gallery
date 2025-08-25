@@ -4,7 +4,6 @@ export class EnvRenderer {
     device;
     loader;
     shaderLoader;
-    viewProjectionMatrix;
     //Items
     chambers;
     floor;
@@ -32,10 +31,10 @@ export class EnvRenderer {
         this.floor = new Floor(this.loader);
         await this.floor.init();
         //Chambers
-        this.chambers = new Chambers(this.device, this.loader, this.shaderLoader);
+        this.chambers = new Chambers(this.loader);
         await this.chambers.init();
     }
-    async lateRenderer(camera) {
-        await this.chambers.updateRaycaster(camera);
+    async lateRenderer(passEncoder, viewProjectionMatrix) {
+        await this.chambers.renderStencil(passEncoder, viewProjectionMatrix);
     }
 }

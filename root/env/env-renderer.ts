@@ -5,13 +5,11 @@ import { ShaderLoader } from "../shader-loader.js";
 import { ObjectManager } from "./obj/object-manager.js";
 import { Chambers } from "./structures/chambers.js";
 import { Floor } from "./structures/floor.js";
-import { Camera } from "../camera.js";
 
 export class EnvRenderer {
     private device: GPUDevice;
     private loader: Loader;
     private shaderLoader: ShaderLoader;
-    public viewProjectionMatrix: mat4;
 
     //Items
     public chambers!: Chambers;
@@ -51,16 +49,11 @@ export class EnvRenderer {
         await this.floor.init();
         
         //Chambers
-        this.chambers = new Chambers(
-            this.device,
-            this.loader, 
-            this.shaderLoader,
-
-        );
+        this.chambers = new Chambers(this.loader);
         await this.chambers.init();
     }
 
-    public async lateRenderer(camera: Camera): Promise<void> {
-        await this.chambers.updateRaycaster(camera);
+    public async lateRenderer(passEncoder: GPURenderPassEncoder, viewProjectionMatrix: mat4): Promise<void> {
+        await this.chambers.renderStencil(passEncoder, viewProjectionMatrix)
     }
 }

@@ -16,6 +16,7 @@ import { Skybox } from "./skybox/skybox.js";
 import { AmbientLight } from "./lightning/ambient-light.js";
 import { DirectionalLight } from "./lightning/directional-light.js";
 let pipeline;
+let stencilPipeline;
 let buffers;
 let cachedBindGroups = null;
 let passEncoder;
@@ -39,14 +40,16 @@ let wireframeMode = false;
 let wireframePipeline = null;
 async function initShaders() {
     try {
-        const [vertexSrc, fragSrc, ambientLightSrc, directionalLightSrc, glowSrc] = await Promise.all([
+        const [vertexSrc, fragSrc, ambientLightSrc, directionalLightSrc, glowSrc, stencilSrc] = await Promise.all([
             shaderLoader.loader('./.shaders/vertex.wgsl'),
             shaderLoader.sourceLoader('./.shaders/frag.wgsl'),
             shaderLoader.sourceLoader('./lightning/shaders/ambient-light.wgsl'),
             shaderLoader.sourceLoader('./lightning/shaders/directional-light.wgsl'),
             shaderLoader.sourceLoader('./.shaders/glow.wgsl'),
+            shaderLoader.sourceLoader('./.shaders/stencil.wgsl'),
         ]);
-        const combinedFragCode = await shaderComposer.combineShader(fragSrc, ambientLightSrc, directionalLightSrc, glowSrc);
+        const combinedFragCode = await shaderComposer.combineShader(fragSrc, ambientLightSrc, directionalLightSrc, glowSrc, stencilSrc);
+        console.log(combinedFragCode);
         return {
             vertexCode: vertexSrc,
             fragCode: combinedFragCode
@@ -138,7 +141,7 @@ async function setBindGroups() {
             bindGroupLayout,
             textureBindGroupLayout,
             lightningBindGroupLayout,
-            chamberBindGroupLayout
+            //chamberBindGroupLayout
         };
     }
     catch (err) {
@@ -155,13 +158,15 @@ async function initPipeline() {
     try {
         const { vertexCode, fragCode } = await initShaders();
         const fragCodeSrc = shaderComposer.createShaderModule(fragCode);
-        const { bindGroupLayout, textureBindGroupLayout, lightningBindGroupLayout, chamberBindGroupLayout } = await getBindGroups();
+        const { bindGroupLayout, textureBindGroupLayout, lightningBindGroupLayout,
+        //chamberBindGroupLayout
+         } = await getBindGroups();
         const pipelineLayout = device.createPipelineLayout({
             bindGroupLayouts: [
                 bindGroupLayout,
                 textureBindGroupLayout,
                 lightningBindGroupLayout,
-                chamberBindGroupLayout
+                // chamberBindGroupLayout
             ]
         });
         pipeline = device.createRenderPipeline({
@@ -222,6 +227,7 @@ async function initPipeline() {
                 entryPoint: 'main',
                 targets: [{
                         format: navigator.gpu.getPreferredCanvasFormat(),
+                        //writeMask: 0,
                         blend: {
                             color: {
                                 srcFactor: 'src-alpha',
@@ -243,7 +249,102 @@ async function initPipeline() {
             depthStencil: {
                 depthWriteEnabled: true,
                 depthCompare: 'less',
-                format: 'depth24plus-stencil8'
+                format: 'depth24plus-stencil8',
+                stencilFront: {
+                    compare: 'equal',
+                    failOp: 'keep',
+                    depthFailOp: 'keep',
+                    passOp: 'replace'
+                },
+                stencilBack: {
+                    compare: 'equal',
+                    failOp: 'keep',
+                    depthFailOp: 'keep',
+                    passOp: 'replace'
+                }
+            }
+        });
+        stencilPipeline = device.createRenderPipeline({
+            layout: pipelineLayout,
+            vertex: {
+                module: vertexCode,
+                entryPoint: 'main',
+                buffers: [
+                    {
+                        arrayStride: 8 * 4,
+                        attributes: [
+                            {
+                                shaderLocation: 0,
+                                offset: 0,
+                                format: 'float32x3'
+                            },
+                            {
+                                shaderLocation: 1,
+                                offset: 3 * 4,
+                                format: 'float32x2'
+                            },
+                            {
+                                shaderLocation: 2,
+                                offset: 5 * 4,
+                                format: 'float32x3'
+                            }
+                        ]
+                    },
+                    {
+                        arrayStride: 10 * 4,
+                        attributes: [
+                            {
+                                shaderLocation: 3,
+                                offset: 0,
+                                format: 'float32x3'
+                            },
+                            {
+                                shaderLocation: 4,
+                                offset: 3 * 4,
+                                format: 'float32x3'
+                            },
+                            {
+                                shaderLocation: 5,
+                                offset: 5 * 4,
+                                format: 'float32x3'
+                            },
+                            {
+                                shaderLocation: 6,
+                                offset: 7 * 4,
+                                format: 'float32x3'
+                            }
+                        ],
+                    }
+                ]
+            },
+            fragment: {
+                module: fragCodeSrc,
+                entryPoint: 'main',
+                targets: [{
+                        format: navigator.gpu.getPreferredCanvasFormat(),
+                        writeMask: 0
+                    }]
+            },
+            primitive: {
+                topology: 'triangle-list',
+                cullMode: 'back'
+            },
+            depthStencil: {
+                depthWriteEnabled: true,
+                depthCompare: 'less',
+                format: 'depth24plus-stencil8',
+                stencilFront: {
+                    compare: 'always',
+                    failOp: 'keep',
+                    depthFailOp: 'keep',
+                    passOp: 'replace'
+                },
+                stencilBack: {
+                    compare: 'always',
+                    failOp: 'keep',
+                    depthFailOp: 'keep',
+                    passOp: 'replace'
+                }
             }
         });
         wireframePipeline = device.createRenderPipeline({
@@ -353,7 +454,9 @@ async function getPipeline(passEncoder) {
     passEncoder.setPipeline(currentPipeline);
 }
 async function setBuffers(passEncoder, viewProjectionMatrix, modelMatrix, currentTime) {
-    const { bindGroupLayout, textureBindGroupLayout, lightningBindGroupLayout, chamberBindGroupLayout } = await getBindGroups();
+    const { bindGroupLayout, textureBindGroupLayout, lightningBindGroupLayout,
+    //chamberBindGroupLayout
+     } = await getBindGroups();
     buffers = await initBuffers(device);
     mat4.identity(modelMatrix);
     const renderBuffers = [...await envRenderer.get()];
@@ -373,8 +476,6 @@ async function setBuffers(passEncoder, viewProjectionMatrix, modelMatrix, curren
                 }
             }]
     });
-    //Pipeline
-    await getPipeline(passEncoder);
     //Lightning
     const ambientLightBuffer = lightningManager.getLightBuffer('ambient');
     if (!ambientLightBuffer)
@@ -386,6 +487,61 @@ async function setBuffers(passEncoder, viewProjectionMatrix, modelMatrix, curren
     if (!lightningBindGroup)
         throw new Error('Lightning group err');
     //
+    //Stencil
+    passEncoder.setPipeline(stencilPipeline);
+    for (let i = 0; i < renderBuffers.length; i++) {
+        const data = renderBuffers[i];
+        const offset = 512 * i;
+        if (data.isChamber && data.isChamber[0] > 0) {
+            passEncoder.setStencilReference(data.isChamber[0]);
+            const mvp = mat4.create();
+            mat4.multiply(mvp, viewProjectionMatrix, data.modelMatrix);
+            const normalMatrix = mat3.create();
+            mat3.normalFromMat4(normalMatrix, data.modelMatrix);
+            const uniformData = new Float32Array(64);
+            uniformData.set(mvp, 0);
+            uniformData.set(data.modelMatrix, 16);
+            uniformData.set(normalMatrix, 32);
+            const cameraPos = camera.controller.getCameraPosition();
+            uniformData.set(cameraPos, 48);
+            uniformData.set([currentTime / 1000], 51);
+            uniformData.set([data.isChamber[0]], 53);
+            device.queue.writeBuffer(uniformBuffer, offset, uniformData);
+        }
+    }
+    for (let i = 0; i < renderBuffers.length; i++) {
+        const data = renderBuffers[i];
+        const offset = 512 * i;
+        if (!data.sampler || !data.texture) {
+            console.error('missing');
+            continue;
+        }
+        if (data.isChamber && data.isChamber[0] > 0) {
+            const textureBindGroup = device.createBindGroup({
+                layout: textureBindGroupLayout,
+                entries: [
+                    {
+                        binding: 0,
+                        resource: data.sampler
+                    },
+                    {
+                        binding: 1,
+                        resource: data.texture.createView()
+                    }
+                ]
+            });
+            passEncoder.setVertexBuffer(0, data.vertex);
+            passEncoder.setVertexBuffer(1, data.color);
+            passEncoder.setIndexBuffer(data.index, 'uint16');
+            passEncoder.setBindGroup(0, bindGroup, [offset]);
+            passEncoder.setBindGroup(1, textureBindGroup);
+            passEncoder.setBindGroup(2, lightningBindGroup);
+            passEncoder.drawIndexed(data.indexCount);
+        }
+    }
+    //
+    //Pipeline
+    await getPipeline(passEncoder);
     for (let i = 0; i < renderBuffers.length; i++) {
         const data = renderBuffers[i];
         const offset = 512 * i;
@@ -424,6 +580,7 @@ async function setBuffers(passEncoder, viewProjectionMatrix, modelMatrix, curren
                 }
             ]
         });
+        /*
         const chamberBindGroup = device.createBindGroup({
             layout: chamberBindGroupLayout,
             entries: [
@@ -441,13 +598,19 @@ async function setBuffers(passEncoder, viewProjectionMatrix, modelMatrix, curren
                 }
             ]
         });
+        */
+        if (data.isChamber && data.isChamber[0] > 0) {
+            passEncoder.setStencilReference(data.isChamber[0]);
+        }
+        else {
+            passEncoder.setStencilReference(0);
+        }
         passEncoder.setVertexBuffer(0, data.vertex);
         passEncoder.setVertexBuffer(1, data.color);
         passEncoder.setIndexBuffer(data.index, 'uint16');
         passEncoder.setBindGroup(0, bindGroup, [offset]);
         passEncoder.setBindGroup(1, textureBindGroup);
         passEncoder.setBindGroup(2, lightningBindGroup);
-        passEncoder.setBindGroup(3, chamberBindGroup);
         passEncoder.drawIndexed(data.indexCount);
     }
 }
@@ -509,7 +672,7 @@ async function lateRenderers(passEncoder, viewProjectionMatrix, deltaTime) {
         await skybox.init();
     }
     await skybox.render(passEncoder, viewProjectionMatrix, deltaTime);
-    await envRenderer.lateRenderer(camera);
+    await envRenderer.lateRenderer(passEncoder, viewProjectionMatrix);
 }
 export async function render(canvas) {
     try {
@@ -620,7 +783,6 @@ export async function render(canvas) {
         const viewMatrix = camera.getViewMatrix();
         mat4.multiply(viewProjectionMatrix, projectionMatrix, viewMatrix);
         objectManager.deps.viewProjectionMatrix = viewProjectionMatrix;
-        envRenderer.viewProjectionMatrix = viewProjectionMatrix;
         //Buffers
         await setBuffers(passEncoder, viewProjectionMatrix, modelMatrix, currentTime);
         //**__ Late Renderers __**
