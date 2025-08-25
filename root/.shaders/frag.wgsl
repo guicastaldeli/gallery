@@ -1,6 +1,8 @@
 @group(1) @binding(0) var textureSampler: sampler;
 @group(1) @binding(1) var textureMap: texture_2d<f32>;
 @group(3) @binding(0) var<uniform> chamberColors: array<vec4f, 5>;
+@group(3) @binding(1) var<uniform> hightlightedSide: i32;
+@group(3) @binding(2) var<uniform> propColor: vec4f;
 
 struct FragmentInput {
     @location(0) texCoord: vec2f,
@@ -32,21 +34,35 @@ fn applyDither(color: vec3f, fragCoord: vec2f) -> vec3f {
 @fragment
 fn main(input: FragmentInput) -> @location(0) vec4f {
     var texColor = textureSample(textureMap, textureSampler, input.texCoord);
-    var baseColor = mix(texColor.rgb, input.color, 0.1);
 
     let worldPos = input.worldPos;
     let dFdxPos = dpdx(worldPos);
     let dFdyPos = dpdy(worldPos);
-    let calculatedNormal = normalize(cross(dFdxPos, dFdyPos));
+    let calculatedNormal = normalize(input.worldPos);
+
+    if(input.isChamber > 0.1) {
+        /*
+        let chamberIndex = clamp(i32(round(input.isChamber)), 0, 4);
+        let chamberColor = chamberColors[chamberIndex].rgb;
+        let alpha = texColor.a * 0.1;
+        return vec4f(chamberColor, alpha);
+        */
+
+        let chamberIndex = clamp(i32(round(input.isChamber)), 0, 4);
+        if(hightlightedSide >= 0) {
+            let alpha = texColor.a * 0.1;
+            return vec4f(propColor.rgb, alpha);
+        }
+
+        let chamberColor = chamberColors[chamberIndex].rgb;
+        let alpha = texColor.a * 0.1;
+        return vec4f(chamberColor, alpha);
+    }
+
+    var baseColor = mix(texColor.rgb, input.color, 0.1);
     
     var finalColor = applyAmbientLight(baseColor);
     finalColor += applyDirectionalLight(baseColor, calculatedNormal);
-
-    if(input.isChamber > 0.1) {
-        let chamberIndex = clamp(i32(round(input.isChamber)), 0, 5);
-        let chamberColor = chamberColors[chamberIndex].rgb;
-        finalColor = mix(finalColor, chamberColor, 0.8);
-    }
 
     finalColor = max(finalColor, vec3f(0.0));
     //finalColor = applyDither(finalColor, vec2f(input.Position.xy));

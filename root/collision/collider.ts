@@ -94,6 +94,10 @@ export class BoxCollider implements Collider {
         return vec3.clone(this._size);
     }
 
+    public getCenter(): vec3 {
+        return vec3.clone(this._offset);
+    }
+
     public rayIntersect(rayOrigin: vec3, rayDirection: vec3): {
         hit: boolean,
         distance?: number,

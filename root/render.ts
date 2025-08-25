@@ -153,7 +153,23 @@ async function setBindGroups(): Promise<BindGroupResources> {
                     buffer: { 
                         type: 'uniform',
                         minBindingSize: 80
-                    }
+                    },
+                },
+                {
+                    binding: 1,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    buffer: { 
+                        type: 'uniform',
+                        minBindingSize: 4
+                    },
+                },
+                {
+                    binding: 2,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    buffer: { 
+                        type: 'uniform',
+                        minBindingSize: 16
+                    },
                 }
             ]
         });
@@ -270,8 +286,7 @@ async function initPipeline(): Promise<void> {
             },
             primitive: {
                 topology: 'triangle-list',
-                cullMode: 'none',
-                frontFace: 'ccw',
+                cullMode: 'back'
             },
             depthStencil: {
                 depthWriteEnabled: true,
@@ -358,7 +373,7 @@ async function initPipeline(): Promise<void> {
             },
             depthStencil: {
                 depthWriteEnabled: true,
-                depthCompare: 'less',
+                depthCompare: 'always',
                 format: 'depth24plus-stencil8'
             }
         });
@@ -490,6 +505,14 @@ async function setBuffers(
                 {
                     binding: 0,
                     resource: envRenderer.chambers.getChamberColorBuffer()
+                },
+                {
+                    binding: 1,
+                    resource: envRenderer.chambers.getHightlightedSideBuffer()
+                },
+                {
+                    binding: 2,
+                    resource: envRenderer.chambers.getPropColorBuffer()
                 }
             ]
         });
@@ -523,7 +546,7 @@ export function parseColor(rgb: string): [number, number, number] {
         const color = 'rgb(255, 255, 255)';
         const colorArray = parseColor(color);
 
-        const light = new AmbientLight(colorArray, 1.0);
+        const light = new AmbientLight(colorArray, 0.3);
         lightningManager.addAmbientLight('ambient', light);
         lightningManager.updateLightBuffer('ambient');
     }
@@ -542,7 +565,7 @@ export function parseColor(rgb: string): [number, number, number] {
         const direction = vec3.fromValues(pos.x, pos.y, pos.z);
         vec3.normalize(direction, direction);
 
-        const light = new DirectionalLight(colorArray, direction, 0.0);
+        const light = new DirectionalLight(colorArray, direction, 1.0);
         lightningManager.addDirectionalLight('directional', light);
         lightningManager.updateLightBuffer('directional');
     }
@@ -571,7 +594,7 @@ async function lateRenderers(passEncoder: GPURenderPassEncoder, viewProjectionMa
         await skybox.init();
     }
     await skybox.render(passEncoder, viewProjectionMatrix, deltaTime);
-    //await envRenderer.lateRenderer();
+    await envRenderer.lateRenderer(camera);
 }
 
 export async function render(canvas: HTMLCanvasElement): Promise<void> {

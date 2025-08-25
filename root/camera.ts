@@ -5,6 +5,7 @@ import { Controller } from "./controller/controller.js";
 import { Loader } from "./loader.js";
 import { ShaderLoader } from "./shader-loader.js";
 import { LightningManager } from "./lightning-manager.js";
+import { Raycaster } from "./env/structures/raycaster.js";
 
 export class Camera {
     private tick: Tick;
@@ -68,6 +69,21 @@ export class Camera {
         mat4.lookAt(this.viewMatrix, cameraPos, target, this.controller.getUp());
 
         return this.viewMatrix;
+    }
+
+    public getForwardDirection(): vec3 {
+        return this.controller.getForward();
+    }
+
+    public getCameraPosition(): vec3 {
+        return this.controller.getCameraPosition();
+    }
+
+    public getRay(): Raycaster {
+        const origin = this.getCameraPosition();
+        const direction = this.getForwardDirection();
+        const instance = new Raycaster(origin, direction);
+        return instance;
     }
 
     public update(deltaTime: number): void {

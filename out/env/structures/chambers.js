@@ -12,20 +12,37 @@ export class Chambers {
     src = new Map();
     id = 'default-chamber';
     _Collider = [];
+    _fillCollider = [];
     isFill;
     chamberColorsBuffer;
     chamberColors;
+    hightlightedSideBuffer;
+    hightlightedSide = -1;
+    propColorBuffer;
+    propColor = [0, 0, 0, 1];
+    baseSize = { w: 0.05, h: 0.05, d: 0.05 };
+    fillSize = { w: 0.25, h: 0.25, d: 0.05 };
     //Props
     chamberPos = {
         x: 5.0,
         y: 0.0,
         z: 8.0
     };
-    collisionScale = {
-        w: 40.0,
-        h: 40.0,
-        d: 40.0
+    collisionScale = { w: 40.0, h: 40.0, d: 40.0 };
+    fillCollisionScale = { w: 5.5, h: 10.0, d: 1.0 };
+    sideToIndex = {
+        'front': 1,
+        'right': 2,
+        'left': 3,
+        'back': 4
     };
+    sideColors = {
+        'front': [0.8, 0.2, 0.2, 1.0], //Red
+        'right': [0.8, 0.8, 0.2, 1.0], //Yellow
+        'left': [0.2, 0.2, 0.8, 1.0], //Blue
+        'back': [0.2, 0.8, 0.2, 1.0] //Green
+    };
+    //
     constructor(device, loader, shaderLoader) {
         this.device = device;
         this.loader = loader;
@@ -58,11 +75,10 @@ export class Chambers {
         resource.referenceCount++;
         return resource;
     }
-    async create(position, isBlock, rotation) {
+    async create(position, isBlock, size, collision, rotation) {
         if (!isBlock)
             return { block: null, collider: null };
         const isChamber = this.isFill || 0.0;
-        const size = this.structureManager.getSize();
         const source = this.getResource(this.id);
         if (!source)
             throw new Error('err');
@@ -85,10 +101,15 @@ export class Chambers {
         vec3.transformMat4(worldCenter, vec3.create(), block.modelMatrix);
         const collider = isBlock ?
             new BoxCollider([
-                size.w * this.collisionScale.w,
-                size.h * this.collisionScale.h,
-                size.d * this.collisionScale.d
+                size.w * collision.w,
+                size.h * collision.h,
+                size.d * collision.d
             ], worldCenter) : null;
+        this.blocks.sort((a, b) => {
+            const aPos = vec3.transformMat4(vec3.create(), vec3.create(), a.modelMatrix);
+            const bPos = vec3.transformMat4(vec3.create(), vec3.create(), b.modelMatrix);
+            return bPos[1] * aPos[2];
+        });
         this.blocks.push(block);
         return { block, collider };
     }
@@ -123,72 +144,92 @@ export class Chambers {
                     pos: { x: 0.0, y: 0.0, z: 0.0 },
                     rotation: { axis: 'y', angle: 0.0 },
                     pattern: patternData.patterns.chamber.base.front,
-                    isChamber: 0.0
+                    isChamber: 0.0,
+                    size: this.baseSize,
+                    collisionScale: { w: this.collisionScale.w, h: this.collisionScale.h, d: this.collisionScale.d }
                 },
                 {
                     //Right
                     pos: { x: 0, y: 0.0, z: 0.0 },
                     rotation: { axis: 'y', angle: Math.PI / 2 },
                     pattern: patternData.patterns.chamber.base.right,
-                    isChamber: 0.0
+                    isChamber: 0.0,
+                    size: this.baseSize,
+                    collisionScale: { w: this.collisionScale.w, h: this.collisionScale.h, d: this.collisionScale.d }
                 },
                 {
                     //Left
                     pos: { x: 0.0, y: 0.0, z: 4.8 },
                     rotation: { axis: 'y', angle: Math.PI / 2 },
                     pattern: patternData.patterns.chamber.base.left,
-                    isChamber: 0.0
+                    isChamber: 0.0,
+                    size: this.baseSize,
+                    collisionScale: { w: this.collisionScale.w, h: this.collisionScale.h, d: this.collisionScale.d }
                 },
                 {
                     //Back
                     pos: { x: 0.0, y: 0.0, z: -4.8 },
                     rotation: { axis: 'y', angle: 0.0 },
                     pattern: patternData.patterns.chamber.base.back,
-                    isChamber: 0.0
+                    isChamber: 0.0,
+                    size: this.baseSize,
+                    collisionScale: { w: this.collisionScale.w, h: this.collisionScale.h, d: this.collisionScale.d }
                 },
                 {
                     //Ceiling
                     pos: { x: 0.0, y: -5.6, z: -5.6 },
                     rotation: { axis: 'x', angle: Math.PI / 2 },
                     pattern: patternData.patterns.chamber.base.ceiling,
-                    isChamber: 0.0
+                    isChamber: 0.0,
+                    size: this.baseSize,
+                    collisionScale: { w: this.collisionScale.w, h: this.collisionScale.h, d: this.collisionScale.d }
                 },
                 {
                     //Floor
                     pos: { x: 0.0, y: -5.6, z: -0.8 },
                     rotation: { axis: 'x', angle: Math.PI / 2 },
                     pattern: patternData.patterns.chamber.base.floor,
-                    isChamber: 0.0
+                    isChamber: 0.0,
+                    size: this.baseSize,
+                    collisionScale: { w: this.collisionScale.w, h: this.collisionScale.h, d: this.collisionScale.d }
                 },
             ],
             fill: [
                 {
                     //Front
-                    pos: { x: 0.0, y: 0.0, z: 0.0 },
+                    pos: { x: 0.0, y: 1.6, z: 0.0 },
                     rotation: { axis: 'y', angle: 0.0 },
-                    pattern: patternData.patterns.chamber.fill.front,
-                    isChamber: 1.0
+                    pattern: patternData.patterns.chamber.fill,
+                    isChamber: 1.0,
+                    size: this.fillSize,
+                    collisionScale: { w: this.fillCollisionScale.w, h: this.fillCollisionScale.h, d: this.fillCollisionScale.d }
                 },
                 {
                     //Right
-                    pos: { x: 0, y: 0.0, z: 0.0 },
+                    pos: { x: 0.0, y: 1.6, z: 0.0 },
                     rotation: { axis: 'y', angle: Math.PI / 2 },
-                    pattern: patternData.patterns.chamber.fill.right,
-                    isChamber: 2.0
+                    pattern: patternData.patterns.chamber.fill,
+                    isChamber: 2.0,
+                    size: this.fillSize,
+                    collisionScale: { w: this.fillCollisionScale.w, h: this.fillCollisionScale.h, d: this.fillCollisionScale.d }
                 },
                 {
                     //Left
-                    pos: { x: 0.0, y: 0.0, z: 4.8 },
+                    pos: { x: 0.0, y: 1.6, z: 4.8 },
                     rotation: { axis: 'y', angle: Math.PI / 2 },
-                    pattern: patternData.patterns.chamber.fill.left,
-                    isChamber: 3.0
+                    pattern: patternData.patterns.chamber.fill,
+                    isChamber: 3.0,
+                    size: this.fillSize,
+                    collisionScale: { w: this.fillCollisionScale.w, h: this.fillCollisionScale.h, d: this.fillCollisionScale.d }
                 },
                 {
                     //Back
-                    pos: { x: 0.0, y: 0.0, z: -4.8 },
+                    pos: { x: 0.0, y: 1.6, z: -4.8 },
                     rotation: { axis: 'y', angle: 0.0 },
-                    pattern: patternData.patterns.chamber.fill.back,
-                    isChamber: 4.0
+                    pattern: patternData.patterns.chamber.fill,
+                    isChamber: 4.0,
+                    size: this.fillSize,
+                    collisionScale: { w: this.fillCollisionScale.w, h: this.fillCollisionScale.h, d: this.fillCollisionScale.d }
                 }
             ]
         };
@@ -196,10 +237,26 @@ export class Chambers {
             for (const config of group) {
                 this.isFill = config.isChamber;
                 const position = vec3.fromValues(config.pos.x, config.pos.y, config.pos.z);
-                const { blocks, colliders } = await this.structureManager.createFromPattern(config.pattern, position, this.create.bind(this), config.rotation);
+                const { blocks, colliders } = await this.structureManager.createFromPattern(config.pattern, position, (pos, isBlock, rotation) => this.create(pos, isBlock, config.size, config.collisionScale, rotation), config.rotation);
                 this.blocks.push(...blocks.filter(b => b !== null));
                 this._Collider.push(...colliders.filter(c => c !== null));
+                if (config.isChamber > 0) {
+                    const fillColliders = colliders.filter(c => c !== null);
+                    const sideName = this.getSideName(config.isChamber);
+                    fillColliders.forEach(c => {
+                        this._fillCollider.push({ collider: c, side: sideName });
+                    });
+                }
             }
+        }
+    }
+    getSideName(isChamber) {
+        switch (isChamber) {
+            case 1.0: return 'front';
+            case 2.0: return 'right';
+            case 3.0: return 'left';
+            case 4.0: return 'back';
+            default: return 'unknown';
         }
     }
     getPosition() {
@@ -223,6 +280,9 @@ export class Chambers {
             type: this.getCollisionInfo().type
         }));
     }
+    getFillCollider() {
+        return this._fillCollider;
+    }
     getData() {
         return this.blocks;
     }
@@ -240,11 +300,11 @@ export class Chambers {
     }
     async initColors() {
         const colors = new Float32Array(20);
-        colors.set([0.2, 0.8, 0.2, 1.0], 0);
-        colors.set([0.2, 0.8, 0.2, 1.0], 4);
-        colors.set([0.2, 0.2, 0.8, 1.0], 8);
-        colors.set([0.8, 0.8, 0.2, 1.0], 12);
-        colors.set([0.8, 0.2, 0.2, 1.0], 16);
+        colors.set([0.2, 0.8, 0.2, 1.0], 0); //Green
+        colors.set([0.8, 0.2, 0.2, 1.0], 4); //Red
+        colors.set([0.2, 0.2, 0.8, 1.0], 8); //Blue
+        colors.set([0.8, 0.8, 0.2, 1.0], 12); //Yellow
+        colors.set([0.2, 0.8, 0.2, 1.0], 16); //Green
         this.chamberColors = new Float32Array(colors);
         this.chamberColorsBuffer = this.device.createBuffer({
             size: this.chamberColors.byteLength,
@@ -262,10 +322,56 @@ export class Chambers {
         mat4.identity(this.chamberTransform);
         mat4.translate(this.chamberTransform, this.chamberTransform, position);
     }
+    async detectChamber(camera) {
+        const ray = camera.getRay();
+        let closestHit = {
+            distance: Infinity,
+            side: 'none',
+            collider: null
+        };
+        for (const data of this.getFillCollider()) {
+            const collider = data.collider;
+            const result = ray.intersectBox(collider);
+            if (result.hit &&
+                result.distance !== undefined &&
+                result.distance < closestHit.distance) {
+                const side = ray.getHitSide(result.faceNormal || vec3.create());
+                closestHit = {
+                    distance: result.distance,
+                    side: side,
+                    collider: collider
+                };
+            }
+        }
+        return closestHit.side;
+    }
+    createHightlighBuffer() {
+        this.hightlightedSideBuffer = this.device.createBuffer({
+            size: 4,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            mappedAtCreation: true
+        });
+        new Int32Array(this.hightlightedSideBuffer.getMappedRange()).set([-1]);
+        this.hightlightedSideBuffer.unmap();
+        this.propColorBuffer = this.device.createBuffer({
+            size: 16,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            mappedAtCreation: true
+        });
+        new Float32Array(this.propColorBuffer.getMappedRange()).set([0, 0, 0, 1]);
+        this.propColorBuffer.unmap();
+    }
+    getHightlightedSideBuffer() {
+        return this.hightlightedSideBuffer;
+    }
+    getPropColorBuffer() {
+        return this.propColorBuffer;
+    }
     async init() {
         try {
             await this.initColors();
             await this.loadAssets();
+            this.createHightlighBuffer();
             this.setUpdatedPosition(vec3.fromValues(this.chamberPos.x, this.chamberPos.y, this.chamberPos.z));
             await this.generate();
         }
@@ -273,5 +379,30 @@ export class Chambers {
             console.log(err);
             throw err;
         }
+    }
+    async updateRaycaster(camera) {
+        const side = await this.detectChamber(camera);
+        let sideIndex = -1;
+        let colorToPropagate = [0, 0, 0, 1];
+        if (side in this.sideToIndex) {
+            sideIndex = this.sideToIndex[side];
+            colorToPropagate = this.sideColors[side];
+            console.log(`Looking at ${side}`);
+        }
+        else {
+            sideIndex = -1;
+            colorToPropagate = [0, 0, 0, 1];
+        }
+        if (this.hightlightedSide !== sideIndex) {
+            this.hightlightedSide = sideIndex;
+            this.device.queue.writeBuffer(this.hightlightedSideBuffer, 0, new Int32Array([this.hightlightedSide]));
+        }
+        if (!this.vec4Equals(this.propColor, colorToPropagate)) {
+            this.propColor = colorToPropagate;
+            this.device.queue.writeBuffer(this.propColorBuffer, 0, new Float32Array(this.propColor));
+        }
+    }
+    vec4Equals(a, b) {
+        return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
     }
 }

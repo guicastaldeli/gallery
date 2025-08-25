@@ -1,10 +1,11 @@
-import mat4 from "../../node_modules/gl-matrix/esm/index.js";
+import { mat4, vec3 } from "../../node_modules/gl-matrix/esm/index.js";
 import { EnvBufferData } from "./env-buffers.js";
 import { Loader } from "../loader.js";
 import { ShaderLoader } from "../shader-loader.js";
 import { ObjectManager } from "./obj/object-manager.js";
 import { Chambers } from "./structures/chambers.js";
 import { Floor } from "./structures/floor.js";
+import { Camera } from "../camera.js";
 
 export class EnvRenderer {
     private device: GPUDevice;
@@ -53,8 +54,13 @@ export class EnvRenderer {
         this.chambers = new Chambers(
             this.device,
             this.loader, 
-            this.shaderLoader
+            this.shaderLoader,
+
         );
         await this.chambers.init();
+    }
+
+    public async lateRenderer(camera: Camera): Promise<void> {
+        await this.chambers.updateRaycaster(camera);
     }
 }

@@ -9,12 +9,7 @@ export interface Patterns {
                 floor: string[];
                 ceiling: string[];
             },
-            fill: {
-                front: string[];
-                back: string[];
-                right: string[];
-                left: string[];
-            }
+            fill: string[];
         }
         ceiling: string[];
         ground: string[];

@@ -1,10 +1,11 @@
-import { mat3, mat4, vec3 } from "../../../node_modules/gl-matrix/esm/index.js";
+import { mat3, mat4, vec3, vec4 } from "../../../node_modules/gl-matrix/esm/index.js";
 import { EnvBufferData } from "../env-buffers.js";
 import { Patterns } from "../patterns.interface.js";
 import { StructureManager } from "./structure-manager.js";
 import { Loader } from "../../loader.js";
 import { ShaderLoader } from "../../shader-loader.js";
 import { BoxCollider, Collider, CollisionInfo, ICollidable } from "../../collision/collider.js";
+import { Camera } from "../../camera.js";
 
 interface Data extends EnvBufferData {
     id?: string,
@@ -44,23 +45,42 @@ export class Chambers implements ICollidable {
     private src: Map<string, Resource> = new Map();
     private id: string = 'default-chamber';
     private _Collider: BoxCollider[] = [];
+    private _fillCollider: { collider: BoxCollider, side: string }[] = [];
     private isFill!: number;
 
     private chamberColorsBuffer!: GPUBuffer;
     private chamberColors!: Float32Array;
+    private hightlightedSideBuffer!: GPUBuffer;
+    private hightlightedSide: number = -1;
+    private propColorBuffer!: GPUBuffer;
+    private propColor: vec4 = [0, 0, 0, 1];
+    private baseSize: vec3 = { w: 0.05, h: 0.05, d: 0.05 }
+    private fillSize: vec3 = { w: 0.25, h: 0.25, d: 0.05 }
 
     //Props
-    private chamberPos = {
-        x: 5.0,
-        y: 0.0,
-        z: 8.0
-    }
+        private chamberPos = {
+            x: 5.0,
+            y: 0.0,
+            z: 8.0
+        }
 
-    private collisionScale = {
-        w: 40.0,
-        h: 40.0,
-        d: 40.0
-    }
+        private collisionScale = { w: 40.0, h: 40.0, d: 40.0 }
+        private fillCollisionScale = { w: 5.5, h: 10.0, d: 1.0 }
+
+        private sideToIndex: Record<string, number> = {
+            'front': 1,
+            'right': 2,
+            'left': 3,
+            'back': 4
+        }
+
+        private sideColors: Record<string, vec4> = {
+            'front': [0.8, 0.2, 0.2, 1.0], //Red
+            'right': [0.8, 0.8, 0.2, 1.0], //Yellow
+            'left': [0.2, 0.2, 0.8, 1.0], //Blue
+            'back': [0.2, 0.8, 0.2, 1.0] //Green
+        }
+    //
 
     constructor(device: GPUDevice, loader: Loader, shaderLoader: ShaderLoader) {
         this.device = device;
@@ -99,10 +119,12 @@ export class Chambers implements ICollidable {
     private async create(
         position: vec3,
         isBlock: boolean,
+        size: vec3,
+        collision: { w: number, h: number, d: number },
         rotation?: {
             axis: 'x' | 'y' | 'z';
             angle: number;
-        }
+        },
     ): Promise<{ 
         block: Data | null, 
         collider: BoxCollider | null
@@ -110,7 +132,6 @@ export class Chambers implements ICollidable {
         if(!isBlock) return { block: null, collider: null }
 
         const isChamber = this.isFill || 0.0;
-        const size = this.structureManager.getSize();
         const source = this.getResource(this.id);
         if(!source) throw new Error('err');
 
@@ -136,12 +157,18 @@ export class Chambers implements ICollidable {
         const collider = isBlock ? 
         new BoxCollider(
             [
-                size.w * this.collisionScale.w,
-                size.h * this.collisionScale.h,
-                size.d * this.collisionScale.d
+                size.w * collision.w,
+                size.h * collision.h,
+                size.d * collision.d
             ],
             worldCenter
         ) : null;
+
+        this.blocks.sort((a, b) => {
+            const aPos = vec3.transformMat4(vec3.create(), vec3.create(), a.modelMatrix);
+            const bPos = vec3.transformMat4(vec3.create(), vec3.create(), b.modelMatrix);
+            return bPos[1] * aPos[2]
+        });
 
         this.blocks.push(block);
         return { block, collider };
@@ -185,13 +212,17 @@ export class Chambers implements ICollidable {
                 pos: { x: number; y: number; z: number },
                 rotation: { axis: 'x' | 'y' | 'z'; angle: number },
                 pattern: string[],
-                isChamber: number
+                isChamber: number,
+                size: vec3,
+                collisionScale: { w: number, h: number, d: number }
             }[],
             fill: {
                 pos: { x: number; y: number; z: number },
                 rotation: { axis: 'x' | 'y' | 'z'; angle: number },
                 pattern: string[],
-                isChamber: number
+                isChamber: number,
+                size: vec3,
+                collisionScale: { w: number, h: number, d: number }
             }[],
         } = {
             base: [
@@ -200,72 +231,92 @@ export class Chambers implements ICollidable {
                     pos: { x: 0.0, y: 0.0, z: 0.0 },
                     rotation: { axis: 'y', angle: 0.0 },
                     pattern: patternData.patterns.chamber.base.front,
-                    isChamber: 0.0
+                    isChamber: 0.0,
+                    size: this.baseSize,
+                    collisionScale: { w: this.collisionScale.w, h: this.collisionScale.h, d: this.collisionScale.d }
                 },
                 {
                     //Right
                     pos: { x: 0, y: 0.0, z: 0.0 },
                     rotation: { axis: 'y', angle: Math.PI / 2 },
                     pattern: patternData.patterns.chamber.base.right,
-                    isChamber: 0.0
+                    isChamber: 0.0,
+                    size: this.baseSize,
+                    collisionScale: { w: this.collisionScale.w, h: this.collisionScale.h, d: this.collisionScale.d }
                 },
                 {
                     //Left
                     pos: { x: 0.0, y: 0.0, z: 4.8 },
                     rotation: { axis: 'y', angle: Math.PI / 2 },
                     pattern: patternData.patterns.chamber.base.left,
-                    isChamber: 0.0
+                    isChamber: 0.0,
+                    size: this.baseSize,
+                    collisionScale: { w: this.collisionScale.w, h: this.collisionScale.h, d: this.collisionScale.d }
                 },
                 {
                     //Back
                     pos: { x: 0.0, y: 0.0, z: -4.8 },
                     rotation: { axis: 'y', angle: 0.0 },
                     pattern: patternData.patterns.chamber.base.back,
-                    isChamber: 0.0
+                    isChamber: 0.0,
+                    size: this.baseSize,
+                    collisionScale: { w: this.collisionScale.w, h: this.collisionScale.h, d: this.collisionScale.d }
                 },
                 {
                     //Ceiling
                     pos: { x: 0.0, y: -5.6, z: -5.6 },
                     rotation: { axis: 'x', angle: Math.PI / 2 },
                     pattern: patternData.patterns.chamber.base.ceiling,
-                    isChamber: 0.0
+                    isChamber: 0.0,
+                    size: this.baseSize,
+                    collisionScale: { w: this.collisionScale.w, h: this.collisionScale.h, d: this.collisionScale.d }
                 },
                 {
                     //Floor
                     pos: { x: 0.0, y: -5.6, z: -0.8 },
                     rotation: { axis: 'x', angle: Math.PI / 2 },
                     pattern: patternData.patterns.chamber.base.floor,
-                    isChamber: 0.0
+                    isChamber: 0.0,
+                    size: this.baseSize,
+                    collisionScale: { w: this.collisionScale.w, h: this.collisionScale.h, d: this.collisionScale.d }
                 },
             ],
             fill: [
                 {
                     //Front
-                    pos: { x: 0.0, y: 0.0, z: 0.0 },
+                    pos: { x: 0.0, y: 1.6, z: 0.0 },
                     rotation: { axis: 'y', angle: 0.0 },
-                    pattern: patternData.patterns.chamber.fill.front,
-                    isChamber: 1.0
+                    pattern: patternData.patterns.chamber.fill,
+                    isChamber: 1.0,
+                    size: this.fillSize,
+                    collisionScale: { w: this.fillCollisionScale.w, h: this.fillCollisionScale.h, d: this.fillCollisionScale.d }
                 },
                 {
                     //Right
-                    pos: { x: 0, y: 0.0, z: 0.0 },
+                    pos: { x: 0.0, y: 1.6, z: 0.0 },
                     rotation: { axis: 'y', angle: Math.PI / 2 },
-                    pattern: patternData.patterns.chamber.fill.right,
-                    isChamber: 2.0
+                    pattern: patternData.patterns.chamber.fill,
+                    isChamber: 2.0,
+                    size: this.fillSize,
+                    collisionScale: { w: this.fillCollisionScale.w, h: this.fillCollisionScale.h, d: this.fillCollisionScale.d }
                 },
                 {
                     //Left
-                    pos: { x: 0.0, y: 0.0, z: 4.8 },
+                    pos: { x: 0.0, y: 1.6, z: 4.8 },
                     rotation: { axis: 'y', angle: Math.PI / 2 },
-                    pattern: patternData.patterns.chamber.fill.left,
-                    isChamber: 3.0
+                    pattern: patternData.patterns.chamber.fill,
+                    isChamber: 3.0,
+                    size: this.fillSize,
+                    collisionScale: { w: this.fillCollisionScale.w, h: this.fillCollisionScale.h, d: this.fillCollisionScale.d }
                 },
                 {
                     //Back
-                    pos: { x: 0.0, y: 0.0, z: -4.8 },
+                    pos: { x: 0.0, y: 1.6, z: -4.8 },
                     rotation: { axis: 'y', angle: 0.0 },
-                    pattern: patternData.patterns.chamber.fill.back,
-                    isChamber: 4.0
+                    pattern: patternData.patterns.chamber.fill,
+                    isChamber: 4.0,
+                    size: this.fillSize,
+                    collisionScale: { w: this.fillCollisionScale.w, h: this.fillCollisionScale.h, d: this.fillCollisionScale.d }
                 }
             ]
         };
@@ -277,13 +328,32 @@ export class Chambers implements ICollidable {
                 const { blocks, colliders } = await this.structureManager.createFromPattern(
                     config.pattern,
                     position,
-                    this.create.bind(this),
+                    (pos: vec3, isBlock: boolean, rotation?: any) =>
+                        this.create(pos, isBlock, config.size, config.collisionScale, rotation),
                     config.rotation
                 )
     
                 this.blocks.push(...blocks.filter(b => b !== null) as Data[]);
                 this._Collider.push(...colliders.filter(c => c !== null) as BoxCollider[]);
+
+                if(config.isChamber > 0) {
+                    const fillColliders = colliders.filter(c => c !== null) as BoxCollider[];
+                    const sideName = this.getSideName(config.isChamber);
+                    fillColliders.forEach(c => {
+                        this._fillCollider.push({ collider: c, side: sideName })
+                    });
+                }
             }
+        }
+    }
+
+    private getSideName(isChamber: number): string {
+        switch(isChamber) {
+            case 1.0: return 'front';
+            case 2.0: return 'right';
+            case 3.0: return 'left';
+            case 4.0: return 'back';
+            default: return 'unknown';
         }
     }
 
@@ -316,6 +386,10 @@ export class Chambers implements ICollidable {
         }));
     }
 
+    private getFillCollider(): { collider: BoxCollider, side: string }[] {
+        return this._fillCollider;
+    }
+
     public getData(): Data[] {
         return this.blocks;
     }
@@ -333,11 +407,11 @@ export class Chambers implements ICollidable {
 
     private async initColors(): Promise<void> {
         const colors = new Float32Array(20);
-        colors.set([0.2, 0.8, 0.2, 1.0], 0);
-        colors.set([0.2, 0.8, 0.2, 1.0], 4);
-        colors.set([0.2, 0.2, 0.8, 1.0], 8);
-        colors.set([0.8, 0.8, 0.2, 1.0], 12);
-        colors.set([0.8, 0.2, 0.2, 1.0], 16);
+        colors.set([0.2, 0.8, 0.2, 1.0], 0); //Green
+        colors.set([0.8, 0.2, 0.2, 1.0], 4); //Red
+        colors.set([0.2, 0.2, 0.8, 1.0], 8); //Blue
+        colors.set([0.8, 0.8, 0.2, 1.0], 12); //Yellow
+        colors.set([0.2, 0.8, 0.2, 1.0], 16); //Green
 
         this.chamberColors = new Float32Array(colors);
         this.chamberColorsBuffer = this.device.createBuffer({
@@ -360,10 +434,65 @@ export class Chambers implements ICollidable {
         mat4.translate(this.chamberTransform, this.chamberTransform, position);
     }
 
+    public async detectChamber(camera: Camera): Promise<string> {
+        const ray = camera.getRay();
+        let closestHit = {
+            distance: Infinity,
+            side: 'none',
+            collider: null as BoxCollider | null
+        }
+
+        for(const data of this.getFillCollider()) {
+            const collider = data.collider as BoxCollider;
+            const result = ray.intersectBox(collider);
+
+            if(result.hit && 
+                result.distance !== undefined &&
+                result.distance < closestHit.distance
+            ) {
+                const side = ray.getHitSide(result.faceNormal || vec3.create());
+                closestHit = {
+                    distance: result.distance,
+                    side: side,
+                    collider: collider
+                }
+            }
+        }
+
+        return closestHit.side;
+    }
+
+    private createHightlighBuffer(): void {
+        this.hightlightedSideBuffer = this.device.createBuffer({
+            size: 4,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            mappedAtCreation: true
+        });
+        new Int32Array(this.hightlightedSideBuffer.getMappedRange()).set([-1]);
+        this.hightlightedSideBuffer.unmap();
+
+        this.propColorBuffer = this.device.createBuffer({
+            size: 16,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            mappedAtCreation: true
+        });
+        new Float32Array(this.propColorBuffer.getMappedRange()).set([0, 0, 0, 1]);
+        this.propColorBuffer.unmap();
+    }
+
+    public getHightlightedSideBuffer(): GPUBuffer {
+        return this.hightlightedSideBuffer;
+    }
+
+    public getPropColorBuffer(): GPUBuffer {
+        return this.propColorBuffer;
+    }
+
     public async init(): Promise<void> {
         try {
             await this.initColors();
             await this.loadAssets();
+            this.createHightlighBuffer();
             this.setUpdatedPosition(
                 vec3.fromValues(
                     this.chamberPos.x, 
@@ -376,5 +505,42 @@ export class Chambers implements ICollidable {
             console.log(err);
             throw err;
         }
+    }
+
+    public async updateRaycaster(camera: Camera): Promise<void> {
+        const side = await this.detectChamber(camera);
+        let sideIndex = -1;
+        let colorToPropagate: vec4 = [0, 0, 0, 1];
+
+        if(side in this.sideToIndex) {
+            sideIndex = this.sideToIndex[side];
+            colorToPropagate = this.sideColors[side];
+            console.log(`Looking at ${side}`);
+        } else {
+            sideIndex = -1;
+            colorToPropagate = [0, 0, 0, 1];
+        }
+
+        if(this.hightlightedSide !== sideIndex) {
+            this.hightlightedSide = sideIndex;
+            this.device.queue.writeBuffer(
+                this.hightlightedSideBuffer,
+                0,
+                new Int32Array([this.hightlightedSide])
+            );
+        }
+
+        if(!this.vec4Equals(this.propColor, colorToPropagate)) {
+            this.propColor = colorToPropagate;
+            this.device.queue.writeBuffer(
+                this.propColorBuffer,
+                0,
+                new Float32Array(this.propColor)
+            );
+        }
+    }
+
+    private vec4Equals(a: vec4, b: vec4): boolean {
+        return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3]; 
     }
 }

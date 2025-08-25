@@ -1,4 +1,5 @@
 import { mat4, vec3 } from "../node_modules/gl-matrix/esm/index.js";
+import { Raycaster } from "./env/structures/raycaster.js";
 export class Camera {
     tick;
     device;
@@ -41,6 +42,18 @@ export class Camera {
         vec3.add(target, cameraPos, this.controller.getForward());
         mat4.lookAt(this.viewMatrix, cameraPos, target, this.controller.getUp());
         return this.viewMatrix;
+    }
+    getForwardDirection() {
+        return this.controller.getForward();
+    }
+    getCameraPosition() {
+        return this.controller.getCameraPosition();
+    }
+    getRay() {
+        const origin = this.getCameraPosition();
+        const direction = this.getForwardDirection();
+        const instance = new Raycaster(origin, direction);
+        return instance;
     }
     update(deltaTime) {
         const scaledDeltaTime = this.tick.getTimeScale() * deltaTime;

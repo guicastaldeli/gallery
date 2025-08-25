@@ -35,4 +35,7 @@ export class EnvRenderer {
         this.chambers = new Chambers(this.device, this.loader, this.shaderLoader);
         await this.chambers.init();
     }
+    async lateRenderer(camera) {
+        await this.chambers.updateRaycaster(camera);
+    }
 }
