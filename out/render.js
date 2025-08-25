@@ -124,7 +124,7 @@ async function setBindGroups() {
                     visibility: GPUShaderStage.FRAGMENT,
                     buffer: {
                         type: 'uniform',
-                        minBindingSize: 4
+                        minBindingSize: 16
                     },
                 },
                 {
@@ -134,6 +134,14 @@ async function setBindGroups() {
                         type: 'uniform',
                         minBindingSize: 16
                     },
+                },
+                {
+                    binding: 3,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    buffer: {
+                        type: 'uniform',
+                        minBindingSize: 32
+                    },
                 }
             ]
         });
@@ -141,7 +149,7 @@ async function setBindGroups() {
             bindGroupLayout,
             textureBindGroupLayout,
             lightningBindGroupLayout,
-            //chamberBindGroupLayout
+            chamberBindGroupLayout
         };
     }
     catch (err) {
@@ -158,15 +166,13 @@ async function initPipeline() {
     try {
         const { vertexCode, fragCode } = await initShaders();
         const fragCodeSrc = shaderComposer.createShaderModule(fragCode);
-        const { bindGroupLayout, textureBindGroupLayout, lightningBindGroupLayout,
-        //chamberBindGroupLayout
-         } = await getBindGroups();
+        const { bindGroupLayout, textureBindGroupLayout, lightningBindGroupLayout, chamberBindGroupLayout } = await getBindGroups();
         const pipelineLayout = device.createPipelineLayout({
             bindGroupLayouts: [
                 bindGroupLayout,
                 textureBindGroupLayout,
                 lightningBindGroupLayout,
-                // chamberBindGroupLayout
+                chamberBindGroupLayout
             ]
         });
         pipeline = device.createRenderPipeline({
@@ -251,13 +257,13 @@ async function initPipeline() {
                 depthCompare: 'less',
                 format: 'depth24plus-stencil8',
                 stencilFront: {
-                    compare: 'equal',
+                    compare: 'always',
                     failOp: 'keep',
                     depthFailOp: 'keep',
                     passOp: 'replace'
                 },
                 stencilBack: {
-                    compare: 'equal',
+                    compare: 'always',
                     failOp: 'keep',
                     depthFailOp: 'keep',
                     passOp: 'replace'
@@ -322,7 +328,7 @@ async function initPipeline() {
                 entryPoint: 'main',
                 targets: [{
                         format: navigator.gpu.getPreferredCanvasFormat(),
-                        writeMask: 0
+                        //writeMask: 0 
                     }]
             },
             primitive: {
@@ -454,9 +460,7 @@ async function getPipeline(passEncoder) {
     passEncoder.setPipeline(currentPipeline);
 }
 async function setBuffers(passEncoder, viewProjectionMatrix, modelMatrix, currentTime) {
-    const { bindGroupLayout, textureBindGroupLayout, lightningBindGroupLayout,
-    //chamberBindGroupLayout
-     } = await getBindGroups();
+    const { bindGroupLayout, textureBindGroupLayout, lightningBindGroupLayout, chamberBindGroupLayout } = await getBindGroups();
     buffers = await initBuffers(device);
     mat4.identity(modelMatrix);
     const renderBuffers = [...await envRenderer.get()];
@@ -487,6 +491,10 @@ async function setBuffers(passEncoder, viewProjectionMatrix, modelMatrix, curren
     if (!lightningBindGroup)
         throw new Error('Lightning group err');
     //
+    //Chamber
+    const chamberBindGroup = getChamberBindGroup(chamberBindGroupLayout, renderBuffers);
+    if (!chamberBindGroup)
+        throw new Error('chamber group err');
     //Stencil
     passEncoder.setPipeline(stencilPipeline);
     for (let i = 0; i < renderBuffers.length; i++) {
@@ -536,6 +544,7 @@ async function setBuffers(passEncoder, viewProjectionMatrix, modelMatrix, curren
             passEncoder.setBindGroup(0, bindGroup, [offset]);
             passEncoder.setBindGroup(1, textureBindGroup);
             passEncoder.setBindGroup(2, lightningBindGroup);
+            passEncoder.setBindGroup(3, chamberBindGroup);
             passEncoder.drawIndexed(data.indexCount);
         }
     }
@@ -580,25 +589,6 @@ async function setBuffers(passEncoder, viewProjectionMatrix, modelMatrix, curren
                 }
             ]
         });
-        /*
-        const chamberBindGroup = device.createBindGroup({
-            layout: chamberBindGroupLayout,
-            entries: [
-                {
-                    binding: 0,
-                    resource: envRenderer.chambers.getChamberColorBuffer()
-                },
-                {
-                    binding: 1,
-                    resource: envRenderer.chambers.getHightlightedSideBuffer()
-                },
-                {
-                    binding: 2,
-                    resource: envRenderer.chambers.getPropColorBuffer()
-                }
-            ]
-        });
-        */
         if (data.isChamber && data.isChamber[0] > 0) {
             passEncoder.setStencilReference(data.isChamber[0]);
         }
@@ -611,8 +601,43 @@ async function setBuffers(passEncoder, viewProjectionMatrix, modelMatrix, curren
         passEncoder.setBindGroup(0, bindGroup, [offset]);
         passEncoder.setBindGroup(1, textureBindGroup);
         passEncoder.setBindGroup(2, lightningBindGroup);
+        passEncoder.setBindGroup(3, chamberBindGroup);
         passEncoder.drawIndexed(data.indexCount);
     }
+}
+//Chamber
+function getChamberBindGroup(layout, renderBuffers) {
+    const stencilBuffer = device.createBuffer({
+        size: 4 * renderBuffers.length,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+    const stencilValues = new Float32Array(renderBuffers.length);
+    for (let i = 0; i < renderBuffers.length; i++) {
+        const data = renderBuffers[i];
+        stencilValues[i] = data.isChamber ? data.isChamber[0] : 0.0;
+    }
+    device.queue.writeBuffer(stencilBuffer, 0, stencilValues);
+    return device.createBindGroup({
+        layout: layout,
+        entries: [
+            {
+                binding: 0,
+                resource: { buffer: envRenderer.chambers.colorBuffer }
+            },
+            {
+                binding: 1,
+                resource: { buffer: envRenderer.chambers.hightlitedSideBuffer }
+            },
+            {
+                binding: 2,
+                resource: { buffer: envRenderer.chambers.propColorBuffer }
+            },
+            {
+                binding: 3,
+                resource: { buffer: stencilBuffer }
+            }
+        ]
+    });
 }
 //Color Parser
 export function parseColor(rgb) {

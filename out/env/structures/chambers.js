@@ -3,6 +3,7 @@ import { StructureManager } from "./structure-manager.js";
 import { BoxCollider } from "../../collision/collider.js";
 import { StencilRenderer } from "./stencil-renderer.js";
 export class Chambers {
+    device;
     loader;
     structureManager;
     stencilRenderer;
@@ -14,6 +15,9 @@ export class Chambers {
     id = 'default-chamber';
     _Collider = [];
     isFill;
+    colorBuffer;
+    hightlitedSideBuffer;
+    propColorBuffer;
     //Props
     chamberPos = {
         x: 5.0,
@@ -25,10 +29,11 @@ export class Chambers {
     collisionScale = { w: 40.0, h: 40.0, d: 40.0 };
     fillCollisionScale = { w: 0.0, h: 0.0, d: 0.0 };
     //
-    constructor(loader) {
+    constructor(device, loader) {
+        this.device = device;
         this.loader = loader;
         this.structureManager = new StructureManager();
-        this.stencilRenderer = new StencilRenderer();
+        this.stencilRenderer = new StencilRenderer(device);
     }
     async loadAssets() {
         try {
@@ -247,6 +252,29 @@ export class Chambers {
             type: this.getCollisionInfo().type
         }));
     }
+    async getColors() {
+        const colors = new Float32Array(5 * 4);
+        colors.set([1.0, 0.0, 0.0, 1.0], 0);
+        colors.set([1.0, 0.0, 0.0, 1.0], 4); //Red
+        colors.set([0.0, 1.0, 0.0, 1.0], 8); //Green
+        colors.set([0.0, 0.0, 1.0, 1.0], 12); //Blue
+        colors.set([1.0, 1.0, 0.0, 1.0], 16); //Yellow
+        this.colorBuffer = this.device.createBuffer({
+            size: colors.byteLength,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            mappedAtCreation: true
+        });
+        new Float32Array(this.colorBuffer.getMappedRange()).set(colors);
+        this.colorBuffer.unmap();
+        this.hightlitedSideBuffer = this.device.createBuffer({
+            size: 16,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+        this.propColorBuffer = this.device.createBuffer({
+            size: 16,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+    }
     getData() {
         return this.blocks;
     }
@@ -269,6 +297,7 @@ export class Chambers {
     async init() {
         try {
             await this.loadAssets();
+            await this.getColors();
             this.setUpdatedPosition(vec3.fromValues(this.chamberPos.x, this.chamberPos.y, this.chamberPos.z));
             await this.generate();
         }

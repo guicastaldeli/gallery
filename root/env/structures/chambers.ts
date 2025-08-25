@@ -31,6 +31,7 @@ interface Resource {
 }
 
 export class Chambers implements ICollidable {
+    private device: GPUDevice;
     private loader: Loader;
     private structureManager: StructureManager;
     private stencilRenderer: StencilRenderer;
@@ -45,6 +46,10 @@ export class Chambers implements ICollidable {
     private _Collider: BoxCollider[] = [];
     private isFill!: number;
 
+    public colorBuffer!: GPUBuffer;
+    public hightlitedSideBuffer!: GPUBuffer;
+    public propColorBuffer!: GPUBuffer;
+
     //Props
         private chamberPos = {
             x: 5.0,
@@ -58,10 +63,11 @@ export class Chambers implements ICollidable {
         private fillCollisionScale = { w: 0.0, h: 0.0, d: 0.0 }
     //
 
-    constructor(loader: Loader) {
+    constructor(device: GPUDevice, loader: Loader) {
+        this.device = device;
         this.loader = loader;
         this.structureManager = new StructureManager();
-        this.stencilRenderer = new StencilRenderer();
+        this.stencilRenderer = new StencilRenderer(device);
     }
 
     private async loadAssets(): Promise<void> {
@@ -346,6 +352,33 @@ export class Chambers implements ICollidable {
         }));
     }
 
+    private async getColors(): Promise<void> {
+        const colors = new Float32Array(5 * 4);
+        colors.set([1.0, 0.0, 0.0, 1.0], 0);
+        colors.set([1.0, 0.0, 0.0, 1.0], 4); //Red
+        colors.set([0.0, 1.0, 0.0, 1.0], 8); //Green
+        colors.set([0.0, 0.0, 1.0, 1.0], 12); //Blue
+        colors.set([1.0, 1.0, 0.0, 1.0], 16); //Yellow
+
+        this.colorBuffer = this.device.createBuffer({
+            size: colors.byteLength,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            mappedAtCreation: true
+        });
+        new Float32Array(this.colorBuffer.getMappedRange()).set(colors);
+        this.colorBuffer.unmap();
+
+        this.hightlitedSideBuffer = this.device.createBuffer({
+            size: 16,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+
+        this.propColorBuffer = this.device.createBuffer({
+            size: 16,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+    }
+
     public getData(): Data[] {
         return this.blocks;
     }
@@ -369,6 +402,7 @@ export class Chambers implements ICollidable {
     public async init(): Promise<void> {
         try {
             await this.loadAssets();
+            await this.getColors();
             this.setUpdatedPosition(
                 vec3.fromValues(
                     this.chamberPos.x, 

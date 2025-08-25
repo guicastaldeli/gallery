@@ -31,7 +31,7 @@ export class EnvRenderer {
         this.floor = new Floor(this.loader);
         await this.floor.init();
         //Chambers
-        this.chambers = new Chambers(this.loader);
+        this.chambers = new Chambers(this.device, this.loader);
         await this.chambers.init();
     }
     async lateRenderer(passEncoder, viewProjectionMatrix) {

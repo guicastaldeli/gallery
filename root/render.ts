@@ -20,6 +20,7 @@ import { ObjectManager } from "./env/obj/object-manager.js";
 import { Skybox } from "./skybox/skybox.js";
 import { AmbientLight } from "./lightning/ambient-light.js";
 import { DirectionalLight } from "./lightning/directional-light.js";
+import { EnvBufferData } from "./env/env-buffers.js";
 
 interface Shaders {
     vertexCode: GPUShaderModule;
@@ -30,7 +31,7 @@ interface BindGroupResources {
     bindGroupLayout: GPUBindGroupLayout;
     textureBindGroupLayout: GPUBindGroupLayout;
     lightningBindGroupLayout: GPUBindGroupLayout;
-    //chamberBindGroupLayout: GPUBindGroupLayout;
+    chamberBindGroupLayout: GPUBindGroupLayout;
 }
 
 let pipeline: GPURenderPipeline;
@@ -166,7 +167,7 @@ async function setBindGroups(): Promise<BindGroupResources> {
                     visibility: GPUShaderStage.FRAGMENT,
                     buffer: { 
                         type: 'uniform',
-                        minBindingSize: 4
+                        minBindingSize: 16
                     },
                 },
                 {
@@ -176,6 +177,14 @@ async function setBindGroups(): Promise<BindGroupResources> {
                         type: 'uniform',
                         minBindingSize: 16
                     },
+                },
+                {
+                    binding: 3,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    buffer: { 
+                        type: 'uniform',
+                        minBindingSize: 32
+                    },
                 }
             ]
         });
@@ -184,7 +193,7 @@ async function setBindGroups(): Promise<BindGroupResources> {
             bindGroupLayout, 
             textureBindGroupLayout,
             lightningBindGroupLayout,
-            //chamberBindGroupLayout
+            chamberBindGroupLayout
         }
     } catch(err) {
         console.log(err);
@@ -206,7 +215,7 @@ async function initPipeline(): Promise<void> {
             bindGroupLayout, 
             textureBindGroupLayout,
             lightningBindGroupLayout,
-            //chamberBindGroupLayout
+            chamberBindGroupLayout
         } = await getBindGroups();
 
         const pipelineLayout = device.createPipelineLayout({
@@ -214,7 +223,7 @@ async function initPipeline(): Promise<void> {
                 bindGroupLayout, 
                 textureBindGroupLayout,
                 lightningBindGroupLayout,
-               // chamberBindGroupLayout
+                chamberBindGroupLayout
             ]
         });
 
@@ -300,13 +309,13 @@ async function initPipeline(): Promise<void> {
                 depthCompare: 'less',
                 format: 'depth24plus-stencil8',
                 stencilFront: {
-                    compare: 'equal',
+                    compare: 'always',
                     failOp: 'keep',
                     depthFailOp: 'keep',
                     passOp: 'replace'
                 },
                 stencilBack: {
-                    compare: 'equal',
+                    compare: 'always',
                     failOp: 'keep',
                     depthFailOp: 'keep',
                     passOp: 'replace'
@@ -371,7 +380,7 @@ async function initPipeline(): Promise<void> {
                 entryPoint: 'main',
                 targets: [{ 
                     format: navigator.gpu.getPreferredCanvasFormat(),
-                    writeMask: 0 
+                    //writeMask: 0 
                 }]
             },
             primitive: {
@@ -515,7 +524,7 @@ async function setBuffers(
         bindGroupLayout, 
         textureBindGroupLayout,
         lightningBindGroupLayout,
-        //chamberBindGroupLayout
+        chamberBindGroupLayout
     } = await getBindGroups();
     buffers = await initBuffers(device);
     mat4.identity(modelMatrix);
@@ -549,6 +558,10 @@ async function setBuffers(
         const lightningBindGroup = lightningManager.getLightningBindGroup(depthTexture!, lightningBindGroupLayout);
         if(!lightningBindGroup) throw new Error('Lightning group err');
     //
+
+    //Chamber
+    const chamberBindGroup = getChamberBindGroup(chamberBindGroupLayout, renderBuffers);
+    if(!chamberBindGroup) throw new Error('chamber group err');
 
     //Stencil
         passEncoder.setPipeline(stencilPipeline);
@@ -609,6 +622,7 @@ async function setBuffers(
                 passEncoder.setBindGroup(0, bindGroup, [offset]);
                 passEncoder.setBindGroup(1, textureBindGroup);
                 passEncoder.setBindGroup(2, lightningBindGroup);
+                passEncoder.setBindGroup(3, chamberBindGroup);
                 passEncoder.drawIndexed(data.indexCount);
             }
         }
@@ -665,26 +679,6 @@ async function setBuffers(
             ]
         });
 
-        /*
-        const chamberBindGroup = device.createBindGroup({
-            layout: chamberBindGroupLayout,
-            entries: [
-                {
-                    binding: 0,
-                    resource: envRenderer.chambers.getChamberColorBuffer()
-                },
-                {
-                    binding: 1,
-                    resource: envRenderer.chambers.getHightlightedSideBuffer()
-                },
-                {
-                    binding: 2,
-                    resource: envRenderer.chambers.getPropColorBuffer()
-                }
-            ]
-        });
-        */
-
         if(data.isChamber && data.isChamber[0] > 0) {
             passEncoder.setStencilReference(data.isChamber[0]);
         } else {
@@ -697,8 +691,46 @@ async function setBuffers(
         passEncoder.setBindGroup(0, bindGroup, [offset]);
         passEncoder.setBindGroup(1, textureBindGroup);
         passEncoder.setBindGroup(2, lightningBindGroup);
+        passEncoder.setBindGroup(3, chamberBindGroup);
         passEncoder.drawIndexed(data.indexCount);
     }
+}
+
+//Chamber
+function getChamberBindGroup(layout: GPUBindGroupLayout, renderBuffers: EnvBufferData[]): GPUBindGroup {
+    const stencilBuffer = device.createBuffer({
+        size: 4 * renderBuffers.length,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+
+    const stencilValues = new Float32Array(renderBuffers.length);
+    for(let i = 0; i < renderBuffers.length; i++) {
+        const data = renderBuffers[i];
+        stencilValues[i] = data.isChamber ? data.isChamber[0] : 0.0;
+    }
+    device.queue.writeBuffer(stencilBuffer, 0, stencilValues);
+
+    return device.createBindGroup({
+        layout: layout,
+        entries: [
+            {
+                binding: 0,
+                resource: { buffer: envRenderer.chambers.colorBuffer }
+            },
+            {
+                binding: 1,
+                resource: { buffer: envRenderer.chambers.hightlitedSideBuffer }
+            },
+            {
+                binding: 2,
+                resource: { buffer: envRenderer.chambers.propColorBuffer }
+            },
+            {
+                binding: 3,
+                resource: { buffer: stencilBuffer }
+            }
+        ]
+    });
 }
 
 //Color Parser

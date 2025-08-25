@@ -49,7 +49,7 @@ export class EnvRenderer {
         await this.floor.init();
         
         //Chambers
-        this.chambers = new Chambers(this.loader);
+        this.chambers = new Chambers(this.device, this.loader);
         await this.chambers.init();
     }
 

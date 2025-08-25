@@ -38,16 +38,24 @@ fn main(input: FragmentInput) -> @location(0) vec4f {
     let calculatedNormal = normalize(input.worldPos);
 
     if(input.isChamber > 0.1) {
-        var chamberColor = vec4f(0.8, 0.8, 1.0, 0.5);
-        return chamberColor;
+        let chamberColor = getChamberColor(input.isChamber, vec4f(texColor.rgb, texColor.a));
+        
+        var finalColor = applyAmbientLight(chamberColor.rgb);
+        finalColor += applyDirectionalLight(chamberColor.rgb, calculatedNormal);
+        finalColor = max(finalColor, vec3f(0.0));
+
+        let color = vec4f(finalColor, texColor.a); 
+        return color;
     }
 
     var baseColor = mix(texColor.rgb, input.color, 0.1);
+    var sfColor = sf_main(vec4f(baseColor, texColor.a));
     
-    var finalColor = applyAmbientLight(baseColor);
-    finalColor += applyDirectionalLight(baseColor, calculatedNormal);
-
+    var finalColor = applyAmbientLight(sfColor.rgb);
+    finalColor += applyDirectionalLight(sfColor.rgb, calculatedNormal);
     finalColor = max(finalColor, vec3f(0.0));
     //finalColor = applyDither(finalColor, vec2f(input.Position.xy));
-    return vec4f(finalColor, texColor.a);
+
+    let color = vec4f(finalColor, texColor.a);
+    return color;
 }
