@@ -45,7 +45,6 @@ export class Chambers implements ICollidable {
     private src: Map<string, Resource> = new Map();
     private id: string = 'default-chamber';
     private _Collider: BoxCollider[] = [];
-    private _fillCollider: { collider: BoxCollider, side: string }[] = [];
     private isFill!: number;
 
     private chamberColorsBuffer!: GPUBuffer;
@@ -65,7 +64,7 @@ export class Chambers implements ICollidable {
         }
 
         private collisionScale = { w: 40.0, h: 40.0, d: 40.0 }
-        private fillCollisionScale = { w: 8.0, h: 5.0, d: 0.05 }
+        private fillCollisionScale = { w: 0.0, h: 0.0, d: 0.0 }
 
         private sideToIndex: Record<string, number> = {
             'front': 1,
@@ -335,25 +334,7 @@ export class Chambers implements ICollidable {
     
                 this.blocks.push(...blocks.filter(b => b !== null) as Data[]);
                 this._Collider.push(...colliders.filter(c => c !== null) as BoxCollider[]);
-
-                if(config.isChamber > 0) {
-                    const fillColliders = colliders as BoxCollider[];
-                    const sideName = this.getSideName(config.isChamber);
-                    fillColliders.forEach(c => {
-                        this._fillCollider.push({ collider: c, side: sideName })
-                    });
-                }
             }
-        }
-    }
-
-    private getSideName(isChamber: number): string {
-        switch(isChamber) {
-            case 1.0: return 'front';
-            case 2.0: return 'right';
-            case 3.0: return 'left';
-            case 4.0: return 'back';
-            default: return 'unknown';
         }
     }
 
@@ -384,10 +365,6 @@ export class Chambers implements ICollidable {
             position: vec3.clone(collider as BoxCollider)['_offset'],
             type: this.getCollisionInfo().type
         }));
-    }
-
-    private getFillCollider(): { collider: BoxCollider, side: string }[] {
-        return this._fillCollider;
     }
 
     public getData(): Data[] {
@@ -442,7 +419,7 @@ export class Chambers implements ICollidable {
             collider: null as BoxCollider | null
         }
 
-        for(const data of this.getFillCollider()) {
+        for(const data of this.getAllColliders()) {
             const collider = data.collider as BoxCollider;
             const result = ray.intersectBox(collider);
 

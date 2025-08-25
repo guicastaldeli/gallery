@@ -10,12 +10,15 @@ export class Raycaster {
         return box.rayIntersect(this.origin, this.direction);
     }
     getHitSide(faceNormal) {
-        const epsilon = 0.01;
+        const epsilon = 0.0001;
         if (Math.abs(faceNormal[2] - 1) < epsilon)
             return 'front';
-        //if(Math.abs(faceNormal[0] + 1) < epsilon) return 'left';
-        //if(Math.abs(faceNormal[0] - 1) < epsilon) return 'right';
-        //if(Math.abs(faceNormal[2] + 1) < epsilon) return 'back';
+        if (Math.abs(faceNormal[0] + 1) < epsilon)
+            return 'left';
+        if (Math.abs(faceNormal[0] - 1) < epsilon)
+            return 'right';
+        if (Math.abs(faceNormal[2] + 1) < epsilon)
+            return 'back';
         return 'unknown';
     }
 }

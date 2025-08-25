@@ -12,7 +12,6 @@ export class Chambers {
     src = new Map();
     id = 'default-chamber';
     _Collider = [];
-    _fillCollider = [];
     isFill;
     chamberColorsBuffer;
     chamberColors;
@@ -29,7 +28,7 @@ export class Chambers {
         z: 8.0
     };
     collisionScale = { w: 40.0, h: 40.0, d: 40.0 };
-    fillCollisionScale = { w: 8.0, h: 5.0, d: 0.05 };
+    fillCollisionScale = { w: 0.0, h: 0.0, d: 0.0 };
     sideToIndex = {
         'front': 1,
         'right': 2,
@@ -240,23 +239,7 @@ export class Chambers {
                 const { blocks, colliders } = await this.structureManager.createFromPattern(config.pattern, position, (pos, isBlock, rotation) => this.create(pos, isBlock, config.size, config.collisionScale, rotation), config.rotation);
                 this.blocks.push(...blocks.filter(b => b !== null));
                 this._Collider.push(...colliders.filter(c => c !== null));
-                if (config.isChamber > 0) {
-                    const fillColliders = colliders;
-                    const sideName = this.getSideName(config.isChamber);
-                    fillColliders.forEach(c => {
-                        this._fillCollider.push({ collider: c, side: sideName });
-                    });
-                }
             }
-        }
-    }
-    getSideName(isChamber) {
-        switch (isChamber) {
-            case 1.0: return 'front';
-            case 2.0: return 'right';
-            case 3.0: return 'left';
-            case 4.0: return 'back';
-            default: return 'unknown';
         }
     }
     getPosition() {
@@ -279,9 +262,6 @@ export class Chambers {
             position: vec3.clone(collider)['_offset'],
             type: this.getCollisionInfo().type
         }));
-    }
-    getFillCollider() {
-        return this._fillCollider;
     }
     getData() {
         return this.blocks;
@@ -329,7 +309,7 @@ export class Chambers {
             side: 'none',
             collider: null
         };
-        for (const data of this.getFillCollider()) {
+        for (const data of this.getAllColliders()) {
             const collider = data.collider;
             const result = ray.intersectBox(collider);
             if (result.hit &&
