@@ -28,3 +28,4 @@ C:\Users\casta\OneDrive\Desktop\vscode\gallery\app\bin\Debug\net9.0\runtimes\win
 C:\Users\casta\OneDrive\Desktop\vscode\gallery\app\bin\Debug\net9.0\runtimes\win-x86\native\glfw3.dll
 C:\Users\casta\OneDrive\Desktop\vscode\gallery\app\obj\Debug\net9.0\app.csproj.AssemblyReference.cache
 C:\Users\casta\OneDrive\Desktop\vscode\gallery\app\obj\Debug\net9.0\app.csproj.Up2Date
+C:\Users\casta\OneDrive\Desktop\vscode\gallery\app\obj\Debug\net9.0\app.sourcelink.json

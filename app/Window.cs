@@ -10,10 +10,14 @@ public class Window : NativeWindow {
     readonly public static int WINDOW_HEIGHT = 440;
     readonly private static string WINDOW_TITLE = "Gallery";
 
+    public bool IsRunning => !IsExiting;
+    public void SwapBuffers() => Context.SwapBuffers();
+
     public Window() : base(new NativeWindowSettings() {
         ClientSize = new Vector2i(WINDOW_WIDTH, WINDOW_HEIGHT),
         Title =      WINDOW_TITLE,
-        API =        ContextAPI.OpenGL
+        API =        ContextAPI.OpenGL,
+        Vsync =      VSyncMode.Off
     }) {
         Context.MakeCurrent();
     }
@@ -22,15 +26,7 @@ public class Window : NativeWindow {
     /// Run
     /// 
     public void Run() {
-        Thread thread = new Thread(() => {
-            Context.MakeCurrent();
-            while(!IsExiting) {
-                Context.SwapBuffers();
-            }
-        });
-
-        Context.MakeNoneCurrent();
-        thread.Start();
-        thread.Join();
+        float v = 0.016f;
+        ProcessEvents(v);
     }
 }
