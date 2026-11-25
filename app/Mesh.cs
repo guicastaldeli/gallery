@@ -46,14 +46,14 @@ public class Mesh {
             GL.DeleteVertexArray(vao);
         }
     }
-    /**/
+    /* */
     
     /* Instance Entry */
     private sealed class InstanceEntry {
         public uint id;
         public string type = "";
     }
-    /**/
+    /* */
     
     /* Bounds */
     public struct Bounds {
@@ -61,7 +61,7 @@ public class Mesh {
         public Vector3 center => new((min.X+max.X), (min.Y+max.Y), (min.Z+max.Z));
         public Vector3 size => new(max.X-min.X, max.Y-min.Y, max.Z-min.Z);
     }
-    /**/
+    /* */
 
     /* Mesh Data */
     private sealed class MeshData {
@@ -256,7 +256,7 @@ public class Mesh {
         }))();
         return m;
     }
-    /**/
+    /* */
 
     private readonly Dictionary<string, BufferData> bufferMeshes = new();
     private readonly Dictionary<uint, Transform> transforms = new();
