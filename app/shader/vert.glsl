@@ -26,17 +26,17 @@ layout(std430, binding = 0) buffer InstanceBuffer {
 
 uniform uint Instance;
 
-layout(location = 0) out vec3  fragColor;
-layout(location = 1) out vec2  fragUv;
+layout(location = 0) out vec3 fragColor;
+layout(location = 1) out vec2 fragUv;
 layout(location = 2) flat out uint fragTexIndex;
 layout(location = 3) flat out uint fragHasTexture;
-layout(location = 4) out vec3  fragPosWorld;
-layout(location = 5) out vec3  fragNormal;
+layout(location = 4) out vec3 fragPosWorld;
+layout(location = 5) out vec3 fragNormal;
 layout(location = 6) flat out uint fragHasLit;
-layout(location = 7) out vec3  fragInstanceColor;
+layout(location = 7) out vec3 fragInstanceColor;
 layout(location = 8) flat out uint fragHasEmissive;
 layout(location = 9) out float fragEmissiveIntensity;
-layout(location = 10) out vec3  fragEmissiveColor;
+layout(location = 10) out vec3 fragEmissiveColor;
 layout(location = 11) flat out uint fragHasFog;
 
 void main() {

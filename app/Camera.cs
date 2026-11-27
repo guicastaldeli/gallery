@@ -15,7 +15,7 @@ public class RigidBody {
     public Camera camera = null!;
     public Tick tick = null!;
 
-    public float GRAVITY = 30.0f;
+    public float GRAVITY = 0.0f;
     public float JUMP_SPEED = 9.0f;
 
     public float verticalVel = 0.0f;
@@ -322,9 +322,9 @@ public class Camera {
         float cosp = MathF.Cos(pitch);
         float sinp = MathF.Sin(pitch);
 
-        forward.X = -siny * cosp;
+        forward.X = siny * cosp;
         forward.Y = sinp;
-        forward.Z = -cosy * cosp;
+        forward.Z = cosy * cosp;
 
         Vector3 u = new(0.0f, 1.0f, 0.0f);
         right.X = forward.X * u.Z - forward.Z * u.Y;
@@ -392,12 +392,12 @@ public class Camera {
         rigidBody.Resume();
 
         if(input.IsCursorCaptured()) {
-            yaw     -= (float)input.MouseDeltaX() * MOUSE_SENSV;
-            pitch   -= (float)input.MouseDeltaY() * MOUSE_SENSV;
+            yaw     += (float)input.MouseDeltaX() * MOUSE_SENSV;
+            pitch   += (float)input.MouseDeltaY() * MOUSE_SENSV;
 
             const float limit = 1.55334f;
             if(pitch > limit) pitch = limit;
-            if(pitch < -limit) pitch -= limit;
+            if(pitch < -limit) pitch = -limit;
         }
 
         Set();

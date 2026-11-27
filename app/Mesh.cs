@@ -23,16 +23,20 @@ public struct Vertex {
 /// ------------------------------
 [StructLayout(LayoutKind.Sequential)]
 public struct DataInstance {
-    public Matrix4 model;
+    public Matrix4 model; 
     public uint texId;
     public uint hasTexture;
     public uint hasLit;
+    public uint _pad0;
     public Vector3 color;
     public uint hasEmissive;
     public float emissiveIntensity; 
+    public float _pad1;
+    public float _pad2;
+    public float _pad3;
     public Vector3 emissiveColor;
     public uint hasFog;
-    public const int Stride = 112;
+    public const int Stride = 128;
 }
 
 /// ------------------------------
@@ -464,7 +468,7 @@ public class Mesh {
                 DrawElementsType.UnsignedInt,
                 IntPtr.Zero,
                 instances.Count);
-            offset += instances.Count * DataInstance.Stride;
+            offset += instances.Count;
             drawCalls++;
         }
 
