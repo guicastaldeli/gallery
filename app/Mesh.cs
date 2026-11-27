@@ -439,7 +439,7 @@ public class Mesh {
             if(!byType.TryGetValue(e.type, out var list)) byType[e.type] = list = new List<DataInstance>();
 
             list.Add(new DataInstance {
-                model = Matrix4.Transpose(t.GetModelMatrix()),
+                model = t.GetModelMatrix(),
                 texId = textureIds.TryGetValue(e.id, out var tex) ? tex : 0u,
                 hasTexture = textureIds.ContainsKey(e.id) ? 1u : 0u,
                 hasLit = hasLitIds.TryGetValue(e.id, out var lit) ? lit : 0u,

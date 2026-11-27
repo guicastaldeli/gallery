@@ -279,7 +279,7 @@ public class Camera {
     // Get View Matrix
     public Matrix4 GetViewMatrix() {
         Vector3 p = GetPosition();
-        Matrix4 v = Matrix4.LookAt(p, p + forward, up);
+        Matrix4 v = Matrix4.LookAt(p, p + forward, Vector3.UnitY);
         return v;
     }
 
@@ -317,27 +317,13 @@ public class Camera {
      * Set
      */
     public void Set() {
-        float cosy = MathF.Cos(yaw);
-        float siny = MathF.Sin(yaw);
-        float cosp = MathF.Cos(pitch);
-        float sinp = MathF.Sin(pitch);
+        forward.X = MathF.Sin(yaw) * MathF.Cos(pitch);
+        forward.Y = MathF.Sin(pitch);
+        forward.Z = MathF.Cos(yaw) * MathF.Cos(pitch);
+        forward = Vector3.Normalize(forward);
 
-        forward.X = siny * cosp;
-        forward.Y = sinp;
-        forward.Z = cosy * cosp;
-
-        Vector3 u = new(0.0f, 1.0f, 0.0f);
-        right.X = forward.X * u.Z - forward.Z * u.Y;
-        right.Y = forward.Z * u.X - forward.X * u.Z;
-        right.Z = forward.X * u.Y - forward.Y * u.X;
-        
-        const float v = 1e-6f;
-        float rl = MathF.Sqrt(right.X*right.X + right.Y*right.Y + right.Z*right.Z);
-        if(rl > v) { right.X /= rl; right.Y /= rl; right.Z /= rl; }
-
-        up.X = right.Y * forward.Z - right.Z * forward.Y;
-        up.Y = right.Z * forward.X - right.X * forward.Z;
-        up.Z = right.X * forward.Y - right.Y * forward.X;
+        right = Vector3.Normalize(Vector3.Cross(forward, Vector3.UnitY));
+        up = Vector3.Normalize(Vector3.Cross(right, forward));
     }
 
     /**
@@ -393,7 +379,7 @@ public class Camera {
 
         if(input.IsCursorCaptured()) {
             yaw     += (float)input.MouseDeltaX() * MOUSE_SENSV;
-            pitch   += (float)input.MouseDeltaY() * MOUSE_SENSV;
+            pitch   -= (float)input.MouseDeltaY() * MOUSE_SENSV;
 
             const float limit = 1.55334f;
             if(pitch > limit) pitch = limit;

@@ -144,7 +144,7 @@ public class Shader {
         }
         modules.Clear();
 
-        //GL.Enable(EnableCap.DepthTest);
+        GL.Enable(EnableCap.DepthTest);
     }
 
     // Cleanup
