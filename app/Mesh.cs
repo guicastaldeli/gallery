@@ -28,7 +28,11 @@ public struct DataInstance {
     public uint hasTexture;
     public uint hasLit;
     public Vector3 color;
-    public const int Stride = 88;
+    public uint hasEmissive;
+    public float emissiveIntensity; 
+    public Vector3 emissiveColor;
+    public uint hasFog;
+    public const int Stride = 112;
 }
 
 /// ------------------------------
@@ -265,8 +269,9 @@ public class Mesh {
     private readonly Dictionary<uint, uint> hasLitIds = new();
     private readonly List<InstanceEntry> pendingInstances = new();
 
-    private int instanceVbo = 0;
+    private int instanceSsb = 0;
     private int instanceCapacityBytes = 0;
+    private const int InstanceBinding = 0;
 
     private uint drawCalls = 0;
 
@@ -366,8 +371,7 @@ public class Mesh {
         GL.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, false, Vertex.Stride, 8*sizeof(float));
         GL.EnableVertexAttribArray(3);
 
-        int baseOffset = 0;
-        BindInstanceAttribs(baseOffset);
+        GL.BindVertexArray(0);
         
         GL.BindVertexArray(0);
 
@@ -379,40 +383,22 @@ public class Mesh {
         };
     }
 
-    // Bind Instance Attribs
-    private void BindInstanceAttribs(int baseOffset) {
-        GL.BindBuffer(BufferTarget.ArrayBuffer, instanceVbo);
-        const int S = DataInstance.Stride;
-
-        for(int i = 0; i < 4; i++) {
-            GL.VertexAttribPointer(4+i, 4, VertexAttribPointerType.Float, false, S, baseOffset + i*16);
-            GL.EnableVertexAttribArray(4+i);
-            GL.VertexAttribDivisor(4+i, 1);
-        }
-        GL.VertexAttribIPointer(8, 1, VertexAttribIntegerType.UnsignedInt, S, baseOffset + 64);
-        GL.EnableVertexAttribArray(8); GL.VertexAttribDivisor(8, 1);
-
-        GL.VertexAttribIPointer(9, 1, VertexAttribIntegerType.UnsignedInt, S, baseOffset + 68);
-        GL.EnableVertexAttribArray(9); GL.VertexAttribDivisor(9, 1);
-
-        GL.VertexAttribIPointer(10, 1, VertexAttribIntegerType.UnsignedInt, S, baseOffset + 72);
-        GL.EnableVertexAttribArray(10); GL.VertexAttribDivisor(10, 1);
-
-        GL.VertexAttribPointer(11, 3, VertexAttribPointerType.Float, false, S, baseOffset + 76);
-        GL.EnableVertexAttribArray(11); GL.VertexAttribDivisor(11, 1);
-
-    }
-
     // Begin Frame
     public void BeginFrame() {
         drawCalls = 0;
+
+        int idx = GL.GetUniformBlockIndex(shader.Program, "InstanceBuffer");
+        if(idx >= 0) GL.UniformBlockBinding(shader.Program, idx, InstanceBinding);
+
         int needed = pendingInstances.Count * DataInstance.Stride;
         if(needed > instanceCapacityBytes) {
-            if(instanceVbo != 0) GL.DeleteBuffer(instanceVbo);
-            instanceVbo = GL.GenBuffer();
-            GL.BindBuffer(BufferTarget.ArrayBuffer, instanceVbo);
-            GL.BufferData(BufferTarget.ArrayBuffer, needed, IntPtr.Zero, BufferUsageHint.DynamicDraw);
-            instanceCapacityBytes = needed;
+            if(instanceSsb != 0) GL.DeleteBuffer(instanceSsb);
+            instanceSsb = GL.GenBuffer();
+            int capacity = Math.Max(needed, DataInstance.Stride * 64);
+            GL.BindBuffer(BufferTarget.ShaderStorageBuffer, instanceSsb);
+            GL.BufferData(BufferTarget.ShaderStorageBuffer, capacity, IntPtr.Zero, BufferUsageHint.DynamicDraw);
+            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, InstanceBinding, instanceSsb);
+            instanceCapacityBytes = capacity;
         }
     }
 
@@ -457,15 +443,20 @@ public class Mesh {
             });
         }
 
-        GL.BindBuffer(BufferTarget.ArrayBuffer, instanceVbo);
+        var all = new List<DataInstance>();
+        foreach(var t in byType) all.AddRange(t.Value);
+
+        GL.BindBuffer(BufferTarget.ShaderStorageBuffer, instanceSsb);
+        GL.BufferSubData(BufferTarget.ShaderStorageBuffer, IntPtr.Zero, all.Count * DataInstance.Stride, all.ToArray());
+        GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, InstanceBinding, instanceSsb);
+        GL.MemoryBarrier(MemoryBarrierFlags.ShaderStorageBarrierBit);
 
         int offset = 0;
         foreach(var (type, instances) in byType) {
             var d = bufferMeshes[type];
-            GL.BufferSubData(BufferTarget.ArrayBuffer, (IntPtr)offset, instances.Count * DataInstance.Stride, instances.ToArray());
-
             GL.BindVertexArray(d.vao);
-            BindInstanceAttribs(offset);
+
+            shader.SetInt("Instance", offset);
 
             GL.DrawElementsInstanced(
                 PrimitiveType.Triangles,
@@ -482,9 +473,9 @@ public class Mesh {
 
     // Cleanup
     public void Cleanup() {
-        if(instanceVbo != 0) {
-            GL.DeleteBuffer(instanceVbo);
-            instanceVbo = 0;
+        if(instanceSsb != 0) {
+            GL.DeleteBuffer(instanceSsb);
+            instanceSsb = 0;
             instanceCapacityBytes = 0;
         }
         foreach(var b in bufferMeshes.Values) b.Dispose();

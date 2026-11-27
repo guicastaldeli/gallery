@@ -37,6 +37,7 @@ public class Main {
         GL.Clear(ClearBufferMask.ColorBufferBit);
         GL.Viewport(0, 0, Window.WINDOW_WIDTH, Window.WINDOW_HEIGHT);
 
+        GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
         mesh.BeginFrame();
         mesh.Render();
 
@@ -50,6 +51,7 @@ public class Main {
      */ 
     public void Run() {
         shader.Run();
+        input.SetCursorCaptured(true);
         
         while(window.IsRunning) {
             window.Run();

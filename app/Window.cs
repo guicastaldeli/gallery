@@ -17,6 +17,8 @@ public class Window : NativeWindow {
         ClientSize = new Vector2i(WINDOW_WIDTH, WINDOW_HEIGHT),
         Title =      WINDOW_TITLE,
         API =        ContextAPI.OpenGL,
+        APIVersion = new Version(4, 3),
+        Profile =    ContextProfile.Core,
         Vsync =      VSyncMode.Off
     }) {
         Context.MakeCurrent();

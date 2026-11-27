@@ -146,7 +146,7 @@ public class RigidBody {
      */
     public void Update() {
         if(paused || tick == null) return;
-        float dt = tick.GetDeltaTime() * 0.001f;
+        float dt = tick.GetDeltaTime();
         position += velocity * dt;
     }
 
@@ -403,6 +403,7 @@ public class Camera {
         Set();
         SetMove();
         Move();
+        rigidBody.Update();
     }  
 
     /**

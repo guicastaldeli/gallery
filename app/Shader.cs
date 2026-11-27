@@ -27,8 +27,8 @@ public struct ShaderStage {
 public class Shader {
     /* Sources */
     private static readonly ShaderStage[] Src = {
-        new() { stage = ShaderType.VertexShader,    path = "vert.glsl" },
-        new() { stage = ShaderType.FragmentShader,  path = "frag.glsl" }
+        new() { stage = ShaderType.VertexShader,    path = "app/shader/vert.glsl" },
+        new() { stage = ShaderType.FragmentShader,  path = "app/shader/frag.glsl" }
     };
     /* */
 
@@ -144,7 +144,7 @@ public class Shader {
         }
         modules.Clear();
 
-        GL.Enable(EnableCap.DepthTest);
+        //GL.Enable(EnableCap.DepthTest);
     }
 
     // Cleanup
