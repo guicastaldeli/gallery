@@ -13,6 +13,6 @@ public class Scene {
     public void Render() {
         uint id = 1;
         mesh.Load(id, "cube");
-        mesh.SetPosition(id, 0.0f, 0.0f, 0.0f);
+        mesh.SetPosition(id, 0.0f, 0.0f, -3.0f);
     }
 }

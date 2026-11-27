@@ -9,10 +9,10 @@ public class Transform {
     public Vector3 Color     = new(1, 1, 1);
 
     public Matrix4 GetModelMatrix() {
-        return Matrix4.CreateTranslation(Position) *
-                Matrix4.CreateRotationX(Rotation.X) *
-                Matrix4.CreateRotationY(Rotation.Y) *
-                Matrix4.CreateRotationZ(Rotation.Z) *
-                Matrix4.CreateScale(Scale);
+        return Matrix4.CreateScale(Scale) *
+           Matrix4.CreateRotationX(Rotation.X) *
+           Matrix4.CreateRotationY(Rotation.Y) *
+           Matrix4.CreateRotationZ(Rotation.Z) *
+           Matrix4.CreateTranslation(Position);
     }
 }

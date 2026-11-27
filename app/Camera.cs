@@ -166,7 +166,7 @@ public class RigidBody {
 public class Camera {
     public float zNear = 0.1f;
     public float zFar = 1000.0f;
-    public float fov = 120.0f;
+    public float fov = 160.0f;
 
     public float POS_X = 0.0f;
     public float POS_Y = 0.0f;
