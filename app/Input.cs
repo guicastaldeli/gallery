@@ -8,6 +8,11 @@ public class Input {
 
     public Input(Window window) {
         this.window = window;
+        window.KeyDown      += e => OnKey(e.Key, true);
+        window.KeyUp        += e => OnKey(e.Key, false);
+        window.MouseDown    += e => OnMouseButton(e.Button, true);
+        window.MouseUp      += e => OnMouseButton(e.Button, false);
+        window.MouseMove    += e => OnCursorPos(e.X, e.Y);
     }
 
     /*******************
@@ -152,5 +157,14 @@ public class Input {
                 SetCursorCaptured(true);
             }
         }
+
+        m_mouseDX = m_rawDX;
+        m_mouseDY = m_rawDY;
+        m_rawDX = m_rawDY = 0;
+
+        m_keysPressed.Clear();
+        m_keysReleased.Clear();
+        m_mousePressed.Clear();
+        m_mouseReleased.Clear();
     }
 }

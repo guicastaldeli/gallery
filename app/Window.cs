@@ -12,7 +12,7 @@ public class Window : NativeWindow {
 
     public bool IsRunning => !IsExiting;
     public void SwapBuffers() => Context.SwapBuffers();
-
+    
     public Window() : base(new NativeWindowSettings() {
         ClientSize = new Vector2i(WINDOW_WIDTH, WINDOW_HEIGHT),
         Title =      WINDOW_TITLE,
@@ -22,11 +22,11 @@ public class Window : NativeWindow {
         Context.MakeCurrent();
     }
 
-    ///
-    /// Run
-    /// 
+    /**
+     * Run
+     */
     public void Run() {
-        float v = 0.016f;
+        float v = 0.0f;
         ProcessEvents(v);
     }
 }

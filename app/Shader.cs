@@ -143,6 +143,8 @@ public class Shader {
             GL.DeleteShader(m);
         }
         modules.Clear();
+
+        GL.Enable(EnableCap.DepthTest);
     }
 
     // Cleanup

@@ -195,8 +195,9 @@ public class Camera {
 
     public float AspectRatio = (float)Window.WINDOW_WIDTH / Window.WINDOW_HEIGHT;
 
-    public Camera(Tick tick) {
+    public Camera(Tick tick, Input input) {
         this.tick = tick;
+        this.input = input;
         
         rigidBody.camera = this;
         rigidBody.Init();
@@ -346,7 +347,7 @@ public class Camera {
     public void SetMove() {
         if(!flyMode) {
             Jump();
-            rigidBody.SetGravity(tick.GetDeltaTime());
+            rigidBody.SetGravity();
         } else {
             rigidBody.verticalVel = 0.0f;
             rigidBody.grounded = false;
