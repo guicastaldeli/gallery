@@ -33,14 +33,14 @@ public class Main {
      * Render
      */
     private void Render() {
-        GL.ClearColor(0.39f, 0.58f, 0.93f, 1.0f);
+        GL.ClearColor(0.5f, 0.5f, 0.5f, 1.0f);
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
         GL.Viewport(0, 0, Window.WINDOW_WIDTH, Window.WINDOW_HEIGHT);
 
+        scene.Render();
+        
         mesh.BeginFrame();
         mesh.Render();
-
-        
 
         window.SwapBuffers();
     }
@@ -50,9 +50,6 @@ public class Main {
      */ 
     public void Run() {
         shader.Run();
-        input.SetCursorCaptured(true);
-
-        scene.Render();
         
         while(window.IsRunning) {
             window.Run();

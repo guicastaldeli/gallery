@@ -40,7 +40,7 @@ public class Shader {
     public void SetMat4(string name, Matrix4 m) {
         int loc = Loc(name);
         if(loc < 0) return;
-        GL.UniformMatrix4(loc, true, ref m);
+        GL.UniformMatrix4(loc, false, ref m);
     }
 
     // Set Vec3

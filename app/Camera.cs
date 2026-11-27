@@ -279,19 +279,18 @@ public class Camera {
     // Get View Matrix
     public Matrix4 GetViewMatrix() {
         Vector3 p = GetPosition();
-        Matrix4 v = Matrix4.LookAt(p, p + forward, Vector3.UnitY);
+        Matrix4 v = Matrix4.LookAt(p, p + forward, up);
         return v;
     }
 
     // Get Projection Matrix
     public Matrix4 GetProjectionMatrix() {
-        float aspect = AspectRatio;
-        return Matrix4.CreatePerspectiveFieldOfView(
-            MathHelper.DegreesToRadians(fov),
-            aspect,
-            zNear, zFar
-        );
-    }
+    return Matrix4.CreatePerspectiveFieldOfView(
+        MathF.PI / 3f,      // 60° in radians
+        AspectRatio,
+        zNear, zFar
+    );
+}
 
     // Toggle Fly Mode
     public void ToggleFlyMode() {
@@ -317,9 +316,9 @@ public class Camera {
      * Set
      */
     public void Set() {
-        forward.X = MathF.Sin(yaw) * MathF.Cos(pitch);
+        forward.X = -MathF.Sin(yaw) * MathF.Cos(pitch);
         forward.Y = MathF.Sin(pitch);
-        forward.Z = MathF.Cos(yaw) * MathF.Cos(pitch);
+        forward.Z = -MathF.Cos(yaw) * MathF.Cos(pitch);
         forward = Vector3.Normalize(forward);
 
         right = Vector3.Normalize(Vector3.Cross(forward, Vector3.UnitY));
@@ -378,7 +377,7 @@ public class Camera {
         rigidBody.Resume();
 
         if(input.IsCursorCaptured()) {
-            yaw     += (float)input.MouseDeltaX() * MOUSE_SENSV;
+            yaw     -= (float)input.MouseDeltaX() * MOUSE_SENSV;
             pitch   -= (float)input.MouseDeltaY() * MOUSE_SENSV;
 
             const float limit = 1.55334f;
