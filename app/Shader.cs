@@ -20,6 +20,7 @@ public struct ShaderStage {
         this.entry      = entry;
     }
 }
+//
 
 /// ------------------------------
 /// Shader
@@ -115,9 +116,9 @@ public class Shader {
     }
 
     /**
-     * Run
+     * Init
      */
-    public void Run() {
+    public void Init() {
         modules.Clear();
         uniformCache.Clear();
 

@@ -6,17 +6,20 @@ public class Scene {
     private const int TERRAIN_COLS = 10;
     private const int TERRAIN_ROWS = 10;
 
-    private readonly Mesh mesh;
     private const string MESH_TYPE = "cube";
 
     private const float POS_X = 0.0f;
     private const float POS_Y = 0.0f;
     private const float POS_Z = 0.0f;
+
+    private readonly Mesh mesh;
+    private readonly CollisionManager collisionManager;
     
     private bool loaded = false;
 
-    public Scene(Mesh mesh) {
+    public Scene(Mesh mesh, CollisionManager collisionManager) {
         this.mesh = mesh;
+        this.collisionManager = collisionManager;
     }
 
     /**
@@ -36,6 +39,8 @@ public class Scene {
                 float px = (x - TERRAIN_COLS / v) * cx;
                 float pz = (z - TERRAIN_ROWS / v) * cz;
                 mesh.SetPosition(id, px, POS_Y, pz);
+
+                collisionManager.Set(id, CollisionType.STATIC_COLLIDER);
             }
         }
     }

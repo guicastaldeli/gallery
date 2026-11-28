@@ -15,7 +15,7 @@ public class RigidBody {
     public Camera camera = null!;
     public Tick tick = null!;
 
-    public float GRAVITY = 0.0f;
+    public float GRAVITY = 30.0f;
     public float JUMP_SPEED = 9.0f;
 
     public float verticalVel = 0.0f;
@@ -159,9 +159,10 @@ public class RigidBody {
         position = new Vector3(camera.POS_X, camera.POS_Y, camera.POS_Z);
     }
 }
+//
 
 /// ------------------------------
-/// RigidBody
+/// Camera
 /// ------------------------------
 public class Camera {
     public float zNear = 0.1f;
@@ -179,6 +180,7 @@ public class Camera {
 
     private readonly Tick tick;
     private readonly Input input;
+    private CollisionManager collisionManager = null!;
 
     private readonly RigidBody rigidBody = new();
     public Vector3 rigidBodySize = new(1.0f, 3.0f, 1.0f);
@@ -319,6 +321,7 @@ public class Camera {
     /**
      * Set
      */
+    // Set
     public void Set() {
         forward.X = -MathF.Sin(yaw) * MathF.Cos(pitch);
         forward.Y = MathF.Sin(pitch);
@@ -327,6 +330,17 @@ public class Camera {
 
         right = Vector3.Normalize(Vector3.Cross(forward, Vector3.UnitY));
         up = Vector3.Normalize(Vector3.Cross(right, forward));
+    }
+
+    // Set Collision
+    private void SetCollision() {
+        collisionManager.OnResolved = (rb, g) => {
+            if(ReferenceEquals(rb, rigidBody)) {
+                rigidBody.Jump(g);
+                rigidBody.grounded = g;
+            }
+        };
+        collisionManager.Set(rigidBody, CollisionType.STATIC_COLLIDER);
     }
 
     /**
@@ -395,16 +409,17 @@ public class Camera {
         Set();
         SetMove();
         Move();
-        rigidBody.Update();
     }  
 
     /**
      * Init
      */ 
-    public void Init() {
-        input.SetCursorCaptured(true);
+    public void Init(CollisionManager collisionManager) {
+        this.collisionManager = collisionManager;
+
         Set();
         SetPosition();
         rigidBody.Update();
+        SetCollision();
     }
 }

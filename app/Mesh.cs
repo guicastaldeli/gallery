@@ -15,8 +15,10 @@ public struct Vertex {
     public float u, v;
     public float r, g, b;
 
-    public const int Stride = sizeof(float) * 11;
+    public const int VertexStride = 11;
+    public const int Stride = sizeof(float) * VertexStride;
 }
+//
 
 /// ------------------------------
 /// DataInstance
@@ -38,6 +40,7 @@ public struct DataInstance {
     public uint hasFog;
     public const int Stride = 128;
 }
+//
 
 /// ------------------------------
 /// Mesh
@@ -343,6 +346,12 @@ public class Mesh {
         if(bufferMeshes.TryGetValue(type, out var b)) return new Bounds { min = b.minBounds, max = b.maxBounds };
         if(Data().TryGetValue(type, out var d)) return new Bounds       { min = d.minBounds, max = d.maxBounds };
         throw new Exception($"Mesh.GetBounds: unknown type {type}");
+    }
+
+    // Get Vertices
+    public List<float>? GetVertices(string type) {
+        if(!Data().TryGetValue(type, out var data)) return null;
+        return data.vertices;
     }
 
     /**

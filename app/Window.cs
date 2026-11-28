@@ -25,9 +25,9 @@ public class Window : NativeWindow {
     }
 
     /**
-     * Run
+     * Init
      */
-    public void Run() {
+    public void Init() {
         float v = 0.0f;
         ProcessEvents(v);
     }

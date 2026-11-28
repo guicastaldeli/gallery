@@ -8,6 +8,7 @@ public class Main {
     private readonly Input input;
     private readonly Camera camera;
     private readonly Mesh mesh;
+    private readonly CollisionManager collisionManager;
     private readonly Scene scene;
 
     public Main() {
@@ -17,7 +18,8 @@ public class Main {
         this.input = new Input(window);
         this.camera = new Camera(tick, input);
         this.mesh = new Mesh(shader, camera);
-        this.scene = new Scene(mesh);
+        this.collisionManager = new CollisionManager(tick, mesh);
+        this.scene = new Scene(mesh, collisionManager);
     }
 
     /**
@@ -26,6 +28,7 @@ public class Main {
     private void Update() {
         tick.Update();
         camera.Update();
+        collisionManager.Update();
         input.Update();
         scene.Update();
     }
@@ -47,13 +50,14 @@ public class Main {
     }
 
     /**
-     * Run
+     * Init
      */ 
-    public void Run() {
-        shader.Run();
+    public void Init() {
+        shader.Init();
+        camera.Init(collisionManager);
         
         while(window.IsRunning) {
-            window.Run();
+            window.Init();
             Update();
             Render();
         }
