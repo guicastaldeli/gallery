@@ -173,7 +173,9 @@ public class Camera {
     public float POS_Z = 0.0f;
 
     public float MOVE_SPEED = 5.0f;
-    public float MOUSE_SENSV = 0.025f;
+    public float MOUSE_SENSV = 50.0f;
+    private const float SENSV_SCALE = 0.0001f;
+    private float MOUSE_SENSV_VAL => MOUSE_SENSV * SENSV_SCALE;
 
     private readonly Tick tick;
     private readonly Input input;
@@ -377,8 +379,8 @@ public class Camera {
         rigidBody.Resume();
 
         if(input.IsCursorCaptured()) {
-            yaw     -= (float)input.MouseDeltaX() * MOUSE_SENSV;
-            pitch   -= (float)input.MouseDeltaY() * MOUSE_SENSV;
+            yaw     -= (float)input.MouseDeltaX() * MOUSE_SENSV_VAL;
+            pitch   -= (float)input.MouseDeltaY() * MOUSE_SENSV_VAL;
 
             const float limit = 1.55334f;
             if(pitch > limit) pitch = limit;

@@ -27,6 +27,7 @@ public class Main {
         tick.Update();
         input.Update();
         camera.Update();
+        scene.Update();
     }
 
     /**
