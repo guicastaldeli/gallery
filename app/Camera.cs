@@ -166,10 +166,10 @@ public class RigidBody {
 public class Camera {
     public float zNear = 0.1f;
     public float zFar = 1000.0f;
-    public float fov = 160.0f;
+    public float fov = 90.0f;
 
     public float POS_X = 0.0f;
-    public float POS_Y = 0.0f;
+    public float POS_Y = 2.0f;
     public float POS_Z = 0.0f;
 
     public float MOVE_SPEED = 5.0f;
@@ -288,7 +288,7 @@ public class Camera {
     // Get Projection Matrix
     public Matrix4 GetProjectionMatrix() {
         return Matrix4.CreatePerspectiveFieldOfView(
-            fov,
+            MathHelper.DegreesToRadians(fov),
             AspectRatio,
             zNear, zFar
         );
@@ -357,7 +357,6 @@ public class Camera {
         if(input.KeyDown(Keys.S))               m -= fwd;
         if(input.KeyDown(Keys.D))               m += right;
         if(input.KeyDown(Keys.A))               m -= right;
-        if(input.KeyDown(Keys.F))               ToggleFlyMode();
         if(flyMode) {
             if(input.KeyDown(Keys.Space))       m.Y += f;
             if(input.KeyDown(Keys.LeftShift))   m.Y -= f;
@@ -381,6 +380,9 @@ public class Camera {
         }
         rigidBody.Resume();
 
+        if(input.KeyPressed(Keys.F)) {
+            ToggleFlyMode();
+        }
         if(input.IsCursorCaptured()) {
             yaw     -= (float)input.MouseDeltaX() * MOUSE_SENSV_VAL;
             pitch   -= (float)input.MouseDeltaY() * MOUSE_SENSV_VAL;
