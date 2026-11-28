@@ -25,8 +25,8 @@ public class Main {
      */
     private void Update() {
         tick.Update();
-        input.Update();
         camera.Update();
+        input.Update();
         scene.Update();
     }
 

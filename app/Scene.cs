@@ -14,7 +14,7 @@ public class Scene {
      */
     public void Update() {
         if(!loaded) return;
-        mesh.SetRotation(id, 0.0f, 0.01f, 0.0f);
+        mesh.SetRotation(id, 0.0f, 0.0001f, 0.0f);
     }
 
     /**

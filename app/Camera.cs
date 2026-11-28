@@ -287,12 +287,12 @@ public class Camera {
 
     // Get Projection Matrix
     public Matrix4 GetProjectionMatrix() {
-    return Matrix4.CreatePerspectiveFieldOfView(
-        MathF.PI / 3f,      // 60° in radians
-        AspectRatio,
-        zNear, zFar
-    );
-}
+        return Matrix4.CreatePerspectiveFieldOfView(
+            fov,
+            AspectRatio,
+            zNear, zFar
+        );
+    }
 
     // Toggle Fly Mode
     public void ToggleFlyMode() {
@@ -302,6 +302,8 @@ public class Camera {
         rigidBody.SetVelocity(v);
         rigidBody.verticalVel = 0.0f;
         rigidBody.grounded = false;
+
+        Console.WriteLine($"Fly Mode: {flyMode}");
     }
 
     // Jump
@@ -355,6 +357,7 @@ public class Camera {
         if(input.KeyDown(Keys.S))               m -= fwd;
         if(input.KeyDown(Keys.D))               m += right;
         if(input.KeyDown(Keys.A))               m -= right;
+        if(input.KeyDown(Keys.F))               ToggleFlyMode();
         if(flyMode) {
             if(input.KeyDown(Keys.Space))       m.Y += f;
             if(input.KeyDown(Keys.LeftShift))   m.Y -= f;
